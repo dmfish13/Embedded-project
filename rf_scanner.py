@@ -1,160 +1,216 @@
 #!/usr/bin/env python3
 """
-RF Scanner for the Jasco QOBRGBXYZA remote using an nRF24L01+ transceiver.
+RF Scanner for the Jasco QOBRGBXYZA remote -- direct SPI implementation.
 
-This script sweeps all 126 nRF24 channels (2.400 – 2.525 GHz) in promiscuous
-mode to capture raw RF packets from the Enbrighten remote.  It is designed to
-run on a Raspberry Pi 5 with the radio wired to SPI0.
+Bypasses the circuitpython-nrf24l01 library entirely and communicates
+with the nRF24L01+ via raw SPI register reads/writes. This avoids the
+SPIDevice / SPIDevCtx wrapper issues on the Raspberry Pi 5.
 
-Hardware wiring (nRF24L01+ → Raspberry Pi 5):
-    VCC  → Pin 17  (3.3 V)
-    GND  → Pin 20  (GND)
-    CE   → GPIO 25
-    CSN  → GPIO 8  (SPI0 CE0)
-    SCK  → GPIO 11 (SPI0 SCLK)
-    MOSI → GPIO 10 (SPI0 MOSI)
-    MISO → GPIO 9  (SPI0 MISO)
+Hardware wiring (nRF24L01+ -> Raspberry Pi 5):
+    VCC  -> Pin 17  (3.3 V)
+    GND  -> Pin 20  (GND)
+    CE   -> GPIO 25 (Pin 22)
+    CSN  -> GPIO 8  (Pin 24)
+    SCK  -> GPIO 11 (Pin 23)
+    MOSI -> GPIO 10 (Pin 19)
+    MISO -> GPIO 9  (Pin 21)
 
-Key configuration choices
--------------------------
-* CRC is **disabled** so the radio does not silently discard non-nRF24 packets.
-* Auto-acknowledge is **disabled** (no ACK expected from the remote).
-* Address width is set to the **minimum 2 bytes** to maximise the chance of
-  matching a random preamble from the Jasco remote.
-* The data rate is set to **1 Mbps** (a common default for consumer 2.4 GHz
-  devices).  If nothing is captured, try switching to 2 Mbps.
-* Payload size is fixed at **32 bytes** (the nRF24 maximum) so we grab as
-  much raw data as possible per reception.
+Promiscuous mode settings:
+    - CRC disabled
+    - Auto-ACK disabled
+    - 2-byte address width (minimum)
+    - 32-byte fixed payload
+    - 1 Mbps data rate
 
 Usage:
-    python3 rf_scanner.py                 # sweep all 126 channels
-    python3 rf_scanner.py --channel 76    # listen on a single channel
-    python3 rf_scanner.py --start 60 --end 80   # sweep a sub-range
+    python3 rf_scanner.py
+    python3 rf_scanner.py --channel 76
+    python3 rf_scanner.py --start 60 --end 80
 """
 
 import time
 import argparse
-import struct
-
 import board
+import busio
 import digitalio
-from circuitpython_nrf24l01.rf24 import RF24
 
 
-# ---------------------------------------------------------------------------
-# Pin setup — SPI0 on the Raspberry Pi 5
-# ---------------------------------------------------------------------------
-# CE  = GPIO 25
-# CSN = GPIO 8 (active-low chip-select, directly mapped to SPI0 CE0)
-ce_pin = digitalio.DigitalInOut(board.D25)
-csn_pin = digitalio.DigitalInOut(board.D8)
+class NRF24L01:
+    """Minimal direct-SPI driver for the nRF24L01+ in promiscuous RX mode."""
 
-# SPI bus (SPI0 — SCLK=GPIO11, MOSI=GPIO10, MISO=GPIO9)
-spi = board.SPI()
+    # Register addresses
+    CONFIG      = 0x00
+    EN_AA       = 0x01
+    EN_RXADDR   = 0x02
+    SETUP_AW    = 0x03
+    RF_CH       = 0x05
+    RF_SETUP    = 0x06
+    STATUS      = 0x07
+    RX_ADDR_P0  = 0x0A
+    RX_ADDR_P1  = 0x0B
+    RX_PW_P0    = 0x11
+    RX_PW_P1    = 0x12
+    FIFO_STATUS = 0x17
+    DYNPD       = 0x1C
+    FEATURE     = 0x1D
 
-# Instantiate the radio
-nrf = RF24(spi, csn_pin, ce_pin)
+    # Commands
+    R_RX_PAYLOAD = 0x61
+    FLUSH_TX     = 0xE1
+    FLUSH_RX     = 0xE2
+    NOP          = 0xFF
+
+    def __init__(self, spi, csn, ce):
+        self._spi = spi
+        self._csn = csn
+        self._ce = ce
+
+        self._csn.direction = digitalio.Direction.OUTPUT
+        self._csn.value = True
+        self._ce.direction = digitalio.Direction.OUTPUT
+        self._ce.value = False
+
+        while not self._spi.try_lock():
+            pass
+        self._spi.configure(baudrate=1000000, polarity=0, phase=0)
+        self._spi.unlock()
+
+        if not self._verify():
+            raise RuntimeError("nRF24L01+ not responding on SPI")
+
+    def _verify(self):
+        """Check the radio responds by reading the default CONFIG value."""
+        val = self._read_reg(self.CONFIG)
+        return val == 0x08 or val == 0x0E
+
+    def _read_reg(self, reg):
+        """Read a single-byte register."""
+        while not self._spi.try_lock():
+            pass
+        self._spi.configure(baudrate=1000000)
+        self._csn.value = False
+        buf = bytearray([reg, 0xFF])
+        self._spi.write_readinto(buf, buf)
+        self._csn.value = True
+        self._spi.unlock()
+        return buf[1]
+
+    def _write_reg(self, reg, value):
+        """Write a single-byte register."""
+        while not self._spi.try_lock():
+            pass
+        self._spi.configure(baudrate=1000000)
+        self._csn.value = False
+        self._spi.write(bytearray([0x20 | reg, value]))
+        self._csn.value = True
+        self._spi.unlock()
+
+    def _write_reg_bytes(self, reg, data):
+        """Write a multi-byte register."""
+        while not self._spi.try_lock():
+            pass
+        self._spi.configure(baudrate=1000000)
+        self._csn.value = False
+        self._spi.write(bytearray([0x20 | reg]) + bytearray(data))
+        self._csn.value = True
+        self._spi.unlock()
+
+    def _command(self, cmd):
+        """Send a single-byte command."""
+        while not self._spi.try_lock():
+            pass
+        self._spi.configure(baudrate=1000000)
+        self._csn.value = False
+        buf = bytearray([cmd])
+        self._spi.write(buf)
+        self._csn.value = True
+        self._spi.unlock()
+
+    def _read_payload(self, length):
+        """Read RX payload of given length."""
+        while not self._spi.try_lock():
+            pass
+        self._spi.configure(baudrate=1000000)
+        self._csn.value = False
+        tx = bytearray([self.R_RX_PAYLOAD] + [0xFF] * length)
+        rx = bytearray(len(tx))
+        self._spi.write_readinto(tx, rx)
+        self._csn.value = True
+        self._spi.unlock()
+        return rx[1:]
+
+    def configure_promiscuous(self):
+        """Set up the radio for promiscuous packet sniffing."""
+        self._ce.value = False
+
+        # Power up in RX mode, CRC disabled
+        # CONFIG: EN_CRC=0, PWR_UP=1, PRIM_RX=1 -> 0x03
+        self._write_reg(self.CONFIG, 0x03)
+        time.sleep(0.002)
+
+        # Disable auto-acknowledge on all pipes
+        self._write_reg(self.EN_AA, 0x00)
+
+        # Enable RX pipes 0 and 1
+        self._write_reg(self.EN_RXADDR, 0x03)
+
+        # Address width: 2 bytes (register value = width - 2)
+        self._write_reg(self.SETUP_AW, 0x00)
+
+        # Set RX addresses: generic patterns to catch broad traffic
+        self._write_reg_bytes(self.RX_ADDR_P0, b"\x00\x55")
+        self._write_reg_bytes(self.RX_ADDR_P1, b"\x00\xAA")
+
+        # Fixed 32-byte payload on both pipes
+        self._write_reg(self.RX_PW_P0, 32)
+        self._write_reg(self.RX_PW_P1, 32)
+
+        # 1 Mbps, 0 dBm PA, LNA enabled -> 0x07
+        self._write_reg(self.RF_SETUP, 0x07)
+
+        # Disable dynamic payloads
+        self._write_reg(self.DYNPD, 0x00)
+        self._write_reg(self.FEATURE, 0x00)
+
+        # Flush FIFOs
+        self._command(self.FLUSH_RX)
+        self._command(self.FLUSH_TX)
+
+        # Clear interrupt flags
+        self._write_reg(self.STATUS, 0x70)
+
+    def set_channel(self, ch):
+        """Switch to a specific RF channel (0-125)."""
+        self._ce.value = False
+        self._write_reg(self.RF_CH, ch)
+        self._ce.value = True
+
+    def available(self):
+        """Check if there is data in the RX FIFO."""
+        fifo = self._read_reg(self.FIFO_STATUS)
+        return not bool(fifo & 0x01)
+
+    def read(self):
+        """Read one 32-byte payload from the RX FIFO."""
+        data = self._read_payload(32)
+        # Clear RX_DR flag
+        self._write_reg(self.STATUS, 0x40)
+        return data
+
+    def start_listening(self):
+        """Enter RX mode."""
+        self._ce.value = True
+
+    def stop_listening(self):
+        """Exit RX mode."""
+        self._ce.value = False
+
+    def power_down(self):
+        """Power off the radio."""
+        self._ce.value = False
+        self._write_reg(self.CONFIG, 0x00)
 
 
-# ---------------------------------------------------------------------------
-# Radio configuration — promiscuous / raw capture mode
-# ---------------------------------------------------------------------------
-def configure_radio(channel=None):
-    """Set up the nRF24L01+ for raw, promiscuous packet sniffing.
-
-    Args:
-        channel: Optional fixed channel (0-125).  If None the caller will
-                 sweep channels manually.
-    """
-    # Disable CRC — critical for seeing non-nRF24 traffic
-    nrf.crc = 0  # 0 = disabled, 1 = 1-byte CRC, 2 = 2-byte CRC
-
-    # Disable auto-acknowledge on all pipes
-    nrf.auto_ack = False
-
-    # Minimum address width (2 bytes) to catch more arbitrary preambles
-    nrf.address_length = 2
-
-    # Use a very generic 2-byte address: 0x00 0x55
-    # 0x55 = 0b01010101 — alternating bits that commonly appear after
-    # the nRF24 preamble byte, increasing capture probability.
-    rx_address = b"\x00\x55"
-    nrf.open_rx_pipe(0, rx_address)
-
-    # Also try the inverted pattern on pipe 1
-    rx_address_alt = b"\x00\xAA"
-    nrf.open_rx_pipe(1, rx_address_alt)
-
-    # Fixed 32-byte payload (maximum) — grab as much data as we can
-    nrf.payload_length = 32
-
-    # 1 Mbps is a good starting point for unknown consumer remotes
-    nrf.data_rate = 1  # 1 = 1 Mbps, 2 = 2 Mbps, 250 = 250 kbps
-
-    # Maximum PA level for best receive sensitivity
-    nrf.pa_level = -12  # dBm (-12 is a safe starting point)
-
-    # Set channel if a fixed one was requested
-    if channel is not None:
-        nrf.channel = channel
-
-    # Put the radio into RX mode
-    nrf.listen = True
-
-
-# ---------------------------------------------------------------------------
-# Scanning helpers
-# ---------------------------------------------------------------------------
-def scan_channel(ch, dwell_ms=50):
-    """Listen on a single channel for *dwell_ms* and return any captured data.
-
-    Args:
-        ch:       nRF24 channel number (0-125).
-        dwell_ms: How long to listen on this channel in milliseconds.
-
-    Returns:
-        List of (channel, raw_bytes) tuples captured during the dwell.
-    """
-    nrf.listen = False
-    nrf.channel = ch
-    nrf.listen = True
-
-    captured = []
-    deadline = time.monotonic() + (dwell_ms / 1000.0)
-
-    while time.monotonic() < deadline:
-        if nrf.available():
-            raw = nrf.read()
-            captured.append((ch, raw))
-
-    return captured
-
-
-def sweep(start_ch=0, end_ch=125, dwell_ms=50):
-    """Sweep a range of channels once, returning everything captured.
-
-    Args:
-        start_ch: First channel to scan (inclusive).
-        end_ch:   Last channel to scan (inclusive).
-        dwell_ms: Time in ms to dwell on each channel.
-
-    Returns:
-        List of (channel, raw_bytes) tuples.
-    """
-    results = []
-    for ch in range(start_ch, end_ch + 1):
-        results.extend(scan_channel(ch, dwell_ms))
-    return results
-
-
-def format_payload(raw):
-    """Return a hex-formatted string of a raw payload."""
-    return " ".join(f"{b:02X}" for b in raw)
-
-
-# ---------------------------------------------------------------------------
-# Main loop
-# ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(
         description="nRF24L01+ RF scanner for the Jasco QOBRGBXYZA remote"
@@ -172,75 +228,83 @@ def main():
         help="End channel for sweep (default: 125)."
     )
     parser.add_argument(
-        "--dwell", type=int, default=50,
-        help="Dwell time per channel in ms (default: 50)."
-    )
-    parser.add_argument(
-        "--rounds", type=int, default=0,
-        help="Number of sweep rounds (0 = infinite, default: 0)."
+        "--dwell", type=int, default=10,
+        help="Dwell time per channel in ms (default: 10)."
     )
     args = parser.parse_args()
 
-    print("=" * 70)
-    print("  nRF24L01+ RF Scanner — Jasco QOBRGBXYZA Remote")
-    print("=" * 70)
+    print("=" * 60)
+    print("  nRF24L01+ RF Scanner -- Direct SPI (Pi 5)")
+    print("  Jasco QOBRGBXYZA Remote")
+    print("=" * 60)
 
-    configure_radio(channel=args.channel)
+    # Init SPI and pins
+    spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
+    csn = digitalio.DigitalInOut(board.D8)
+    ce = digitalio.DigitalInOut(board.D25)
+
+    radio = NRF24L01(spi, csn, ce)
+    radio.configure_promiscuous()
 
     if args.channel is not None:
-        print(f"  Mode       : Fixed channel {args.channel}")
-        freq_mhz = 2400 + args.channel
-        print(f"  Frequency  : {freq_mhz} MHz")
+        print(f"  Mode      : Fixed channel {args.channel} ({2400 + args.channel} MHz)")
     else:
-        print(f"  Mode       : Sweep channels {args.start}–{args.end}")
-        print(f"  Freq range : {2400 + args.start}–{2400 + args.end} MHz")
+        print(f"  Mode      : Sweep channels {args.start}-{args.end}")
+        print(f"  Freq range: {2400 + args.start}-{2400 + args.end} MHz")
 
-    print(f"  Dwell      : {args.dwell} ms per channel")
-    print(f"  CRC        : disabled")
-    print(f"  Auto-ACK   : disabled")
-    print(f"  Addr width : 2 bytes")
-    print(f"  Payload    : 32 bytes (fixed)")
-    print(f"  Data rate  : 1 Mbps")
-    print("=" * 70)
+    print(f"  Dwell     : {args.dwell} ms/channel")
+    print(f"  CRC       : disabled")
+    print(f"  Auto-ACK  : disabled")
+    print(f"  Addr width: 2 bytes")
+    print(f"  Payload   : 32 bytes fixed")
+    print(f"  Data rate : 1 Mbps")
+    print("=" * 60)
     print("\nPress Ctrl+C to stop.\n")
 
     packet_count = 0
     round_num = 0
 
     try:
-        while True:
-            round_num += 1
-            if args.rounds > 0 and round_num > args.rounds:
-                break
+        if args.channel is not None:
+            # Fixed channel mode
+            radio.set_channel(args.channel)
+            while True:
+                if radio.available():
+                    raw = radio.read()
+                    packet_count += 1
+                    hex_str = "".join(f"{b:02X}" for b in raw)[:20]
+                    ts = time.strftime("%H:%M:%S")
+                    print(f"[{ts}] #{packet_count:<5} ch={args.channel:>3} | {hex_str}")
+                time.sleep(0.001)
+        else:
+            # Sweep mode
+            while True:
+                round_num += 1
+                hits_this_round = 0
 
-            if args.channel is not None:
-                # Fixed-channel mode: just keep reading
-                hits = scan_channel(args.channel, dwell_ms=args.dwell)
-            else:
-                # Sweep mode
-                print(f"--- Sweep round {round_num} "
-                      f"(channels {args.start}–{args.end}) ---")
-                hits = sweep(args.start, args.end, dwell_ms=args.dwell)
+                for ch in range(args.start, args.end + 1):
+                    radio.set_channel(ch)
+                    deadline = time.monotonic() + (args.dwell / 1000.0)
 
-            for ch, raw in hits:
-                packet_count += 1
-                freq_mhz = 2400 + ch
-                ts = time.strftime("%H:%M:%S")
-                hex_str = format_payload(raw)
-                print(f"[{ts}]  #{packet_count:<6}  ch={ch:>3}  "
-                      f"({freq_mhz} MHz)  {hex_str}")
+                    while time.monotonic() < deadline:
+                        if radio.available():
+                            raw = radio.read()
+                            packet_count += 1
+                            hits_this_round += 1
+                            hex_str = "".join(f"{b:02X}" for b in raw)[:20]
+                            ts = time.strftime("%H:%M:%S")
+                            print(f"[{ts}] #{packet_count:<5} ch={ch:>3} "
+                                  f"({2400+ch} MHz) | {hex_str}")
 
-            if not hits and args.channel is None:
-                print("  (no packets this round)")
+                if hits_this_round == 0 and round_num % 10 == 0:
+                    print(f"  ... sweep round {round_num}, no packets yet")
 
     except KeyboardInterrupt:
         print(f"\n\nStopped. Total packets captured: {packet_count}")
     finally:
-        nrf.listen = False
-        nrf.power = False
+        radio.power_down()
         print("Radio powered down.")
 
 
 if __name__ == "__main__":
     main()
-rf_scanner
