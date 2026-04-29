@@ -143,7 +143,7 @@ class LEDStrip:
 if __name__ == "__main__":
     import time
 
-    NUM_LEDS = 12
+    NUM_LEDS = 4
 
     print(f"Initialising {NUM_LEDS} SK6812 RGBW LEDs on SPI1 ...")
     strip = LEDStrip(num_leds=NUM_LEDS)

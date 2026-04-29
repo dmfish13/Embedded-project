@@ -89,7 +89,7 @@ class SK6812:
 
 # ---- Configuration ----
 
-NUM_LEDS = 12
+NUM_LEDS = 4
 strip = SK6812(NUM_LEDS, spi_bus=1, spi_device=0)
 
 
