@@ -10,12 +10,12 @@ Once the RF scanner captures real payloads, replace the placeholder hex values
 with the actual captured bytes.
 """
 
-# RGBW tuples: (Red, Green, Blue, White) — values 0-255
+# RGBW tuples: (Red, Green, Blue, White) -- values 0-255
 BUTTON_MAP = {
     # --- Row 1: Function buttons ---
     "Power": {
         "label": "Power",
-        "hex": None,  # placeholder — fill after RF capture
+        "hex": None,  # placeholder -- fill after RF capture
         "rgbw": None,
     },
     "Fade": {
