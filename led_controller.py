@@ -2,32 +2,35 @@
 """
 LED controller for Enbrighten RGBW LED Cafe Lights via SPI1.
 
-Drives SK6812-compatible RGBW LEDs using SPI bit-banging on the
-Raspberry Pi 5's hardware SPI1 peripheral.
+Drives TM1815B RGBW LEDs using SPI bit-banging on the Raspberry Pi 5's
+hardware SPI1 peripheral.
 
-Protocol (800 kHz, non-inverted, SK6812/WS2812B compatible):
-    Line idles LOW.
-    Data 1: HIGH ~833 ns, LOW ~417 ns
-    Data 0: HIGH ~417 ns, LOW ~833 ns
-    Reset:  LOW >= 80 µs
-    Color order: G, R, B, W  (SK6812 RGBW standard)
+Protocol (400 kHz, inverted signal):
+    Line idles HIGH.
+    Data 1: LOW ~625 ns,  HIGH ~1875 ns
+    Data 0: LOW ~1875 ns, HIGH ~625 ns
+    Reset:  HIGH >= 280 µs
+    Color order: W, R, G, B
+    Frame: C1 + C2 + D1 + D2 + ... + Dn
 
-SPI encoding at 2.4 MHz (~417 ns/SPI-bit), 3 SPI bits per data bit:
-    Data 1 -> 0b110  (HIGH 833 ns, LOW 417 ns)
-    Data 0 -> 0b100  (HIGH 417 ns, LOW 833 ns)
+SPI encoding at 1.6 MHz (~625 ns/SPI-bit), 4 SPI bits per data bit:
+    Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
+    Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
 
-8 data bits × 3 SPI bits = 24 SPI bits = 3 SPI bytes per colour byte.
+8 data bits x 4 SPI bits = 32 SPI bits = 4 SPI bytes per colour byte.
 
 Hardware notes
 --------------
 * SPI bus 1 (GPIO 20 = SPI1 MOSI) keeps SPI0 free for the nRF24L01+.
-* A bi-directional level shifter sits between GPIO 20 (3.3 V) and the
-  LED data-in line (5 V).
+* A 3.3V-to-5V level shifter is required between GPIO 20 and the LED
+  data-in line. TM1815B needs 5V logic levels.
+* The on-board driver IC must be disconnected so the Pi is the sole
+  data source on the LED chain.
 
 Usage example:
     from led_controller import LEDStrip
 
-    strip = LEDStrip(num_leds=12)
+    strip = LEDStrip(num_leds=4)
     strip.set_all(255, 0, 0, 0)   # all red
     strip.set_pixel(0, 0, 0, 0, 255)  # first pixel pure white
     strip.show()
@@ -36,23 +39,25 @@ Usage example:
 
 import spidev
 
-SPI_SPEED_HZ = 2_400_000
+SPI_SPEED_HZ = 1_600_000
+DEFAULT_CURRENT = 10
 
 
 def _encode_byte(value):
-    """Encode one colour byte into 3 SPI bytes for SK6812 protocol.
+    """Encode one byte into 4 SPI bytes using inverted TM1815B protocol.
 
-    At 2.4 MHz (417 ns/SPI-bit), 3 SPI bits per data bit:
-        Data 1 -> 0b110  (HIGH 833 ns, LOW 417 ns)
-        Data 0 -> 0b100  (HIGH 417 ns, LOW 833 ns)
+    At 1.6 MHz (625 ns/SPI-bit), 4 SPI bits per data bit:
+        Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
+        Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
     """
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 3) | 0b110
+            encoded = (encoded << 4) | 0b0111
         else:
-            encoded = (encoded << 3) | 0b100
+            encoded = (encoded << 4) | 0b0001
     return [
+        (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,
         (encoded >> 8) & 0xFF,
         encoded & 0xFF,
@@ -61,15 +66,24 @@ def _encode_byte(value):
 
 _LUT = [bytes(_encode_byte(v)) for v in range(256)]
 
-# Reset: hold LOW for >= 80 µs.  At 2.4 MHz each byte is ~3.3 µs,
-# so 30 zero-bytes ≈ 100 µs.
-_RESET_BYTES = b'\x00' * 30
+
+def _build_c1c2(current_w, current_r, current_g, current_b):
+    """Build C1 and C2 current-setting command bytes.
+
+    C1 encodes 6-bit current values for W, R, G, B.
+    C2 is the bitwise complement of C1.
+    """
+    c1 = bytes([current_w & 0x3F, current_r & 0x3F,
+                current_g & 0x3F, current_b & 0x3F])
+    c2 = bytes([b ^ 0xFF for b in c1])
+    return c1, c2
 
 
 class LEDStrip:
-    """High-level driver for SK6812 RGBW LEDs over SPI1."""
+    """High-level driver for TM1815B RGBW LEDs over SPI1."""
 
-    def __init__(self, num_leds, spi_bus=1, brightness=1.0):
+    def __init__(self, num_leds, spi_bus=1, brightness=1.0,
+                 current=DEFAULT_CURRENT):
         self.num_leds = num_leds
         self.brightness = max(0.0, min(1.0, brightness))
 
@@ -78,9 +92,8 @@ class LEDStrip:
         self._spi.max_speed_hz = SPI_SPEED_HZ
         self._spi.mode = 0b00
 
+        self._c1, self._c2 = _build_c1c2(current, current, current, current)
         self._pixels = [(0, 0, 0, 0)] * num_leds
-
-    # ----- pixel manipulation ------------------------------------------------
 
     def set_pixel(self, index, r, g, b, w=0):
         if 0 <= index < self.num_leds:
@@ -97,55 +110,46 @@ class LEDStrip:
         self.set_all(0, 0, 0, 0)
         self.show()
 
-    # ----- output -------------------------------------------------------------
-
     def show(self):
-        """Push the internal pixel buffer to the physical LED strip.
+        """Push pixel buffer to the LED strip.
 
-        Encodes pixels in SK6812 GRBW order and appends a LOW reset
-        period (>= 80 µs) so the chips latch the data.
+        Leading 0xFF bytes establish idle-HIGH. Trailing 0xFF bytes
+        hold the line HIGH for the >= 280 µs reset/latch period.
         """
-        buf = bytearray()
+        buf = bytearray(b'\xFF' * 4)
+
+        for byte_val in self._c1:
+            buf += _LUT[byte_val]
+        for byte_val in self._c2:
+            buf += _LUT[byte_val]
 
         br = self.brightness
         for r, g, b, w in self._pixels:
-            adj_g = int(g * br)
-            adj_r = int(r * br)
-            adj_b = int(b * br)
-            adj_w = int(w * br)
-            buf += _LUT[adj_g] + _LUT[adj_r] + _LUT[adj_b] + _LUT[adj_w]
+            buf += (_LUT[int(w * br)] + _LUT[int(r * br)] +
+                    _LUT[int(g * br)] + _LUT[int(b * br)])
 
-        buf += _RESET_BYTES
+        buf += b'\xFF' * 60
 
         self._spi.xfer2(list(buf))
 
-    # ----- brightness ---------------------------------------------------------
-
     def set_brightness(self, level):
         self.brightness = max(0.0, min(1.0, level))
-
-    # ----- convenience patterns -----------------------------------------------
 
     def fill_color(self, rgbw_tuple):
         if rgbw_tuple and len(rgbw_tuple) == 4:
             self.set_all(*rgbw_tuple)
             self.show()
 
-    # ----- cleanup ------------------------------------------------------------
-
     def close(self):
         self._spi.close()
 
 
-# ---------------------------------------------------------------------------
-# Quick self-test
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import time
 
     NUM_LEDS = 4
 
-    print(f"Initialising {NUM_LEDS} SK6812 RGBW LEDs on SPI1 ...")
+    print(f"Initialising {NUM_LEDS} TM1815B RGBW LEDs on SPI1 ...")
     strip = LEDStrip(num_leds=NUM_LEDS)
 
     colours = [
