@@ -2,19 +2,19 @@
 """
 LED Cycling Demo for Enbrighten RGBW LED Cafe Lights.
 
-Uses a direct-SPI driver for TM1815B RGBW LEDs (32 bits per pixel).
+Uses a direct-SPI driver for SK6812 RGBW LEDs (32 bits per pixel).
 Drives LEDs via SPI1 MOSI (GPIO 20) through a level shifter.
 
-TM1815B protocol (400 kHz, inverted signal):
-    Line idles HIGH. Pulses go LOW.
-    Data 1: low ~625 ns,  high ~1875 ns
-    Data 0: low ~1875 ns, high ~625 ns
-    Color order: W, R, G, B
-    Frame: C1, C2, D1, D2, ... Dn
+SK6812 RGBW protocol (800 kHz, non-inverted):
+    Line idles LOW.
+    Data 1: HIGH ~833 ns, LOW ~417 ns
+    Data 0: HIGH ~417 ns, LOW ~833 ns
+    Color order: G, R, B, W
+    Reset: LOW >= 80 µs
 
-SPI encoding at 1.6 MHz, 4 SPI bits per data bit:
-    Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
-    Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
+SPI encoding at 2.4 MHz, 3 SPI bits per data bit:
+    Data 1 -> 0b110  (HIGH 833 ns, LOW 417 ns)
+    Data 0 -> 0b100  (HIGH 417 ns, LOW 833 ns)
 """
 
 import time
@@ -23,52 +23,41 @@ import math
 from spidev import SpiDev
 
 
-# ---- TM1815B RGBW Direct SPI Driver ----
+# ---- SK6812 RGBW Direct SPI Driver ----
 
-SPI_SPEED_HZ = 1_600_000
-DEFAULT_CURRENT = 10
+SPI_SPEED_HZ = 2_400_000
 
 
-def _encode_byte_inverted(value):
-    """Encode one byte into 4 SPI bytes using inverted TM1815B protocol."""
+def _encode_byte(value):
+    """Encode one colour byte into 3 SPI bytes for SK6812 protocol."""
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b0111
+            encoded = (encoded << 3) | 0b110
         else:
-            encoded = (encoded << 4) | 0b0001
+            encoded = (encoded << 3) | 0b100
     return [
-        (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,
         (encoded >> 8) & 0xFF,
         encoded & 0xFF,
     ]
 
 
-_LUT = [bytes(_encode_byte_inverted(v)) for v in range(256)]
+_LUT = [bytes(_encode_byte(v)) for v in range(256)]
+
+_RESET_BYTES = b'\x00' * 30
 
 
-def _build_c1c2(current):
-    c1_val = current & 0x3F
-    c1 = bytes([c1_val] * 4)
-    c2 = bytes([b ^ 0xFF for b in c1])
-    return c1, c2
+class SK6812:
+    """Drive SK6812 RGBW LEDs via SPI bit-banging at 2.4 MHz."""
 
-
-class TM1815B:
-    """Drive TM1815B RGBW LEDs via SPI bit-banging at 1.6 MHz."""
-
-    RESET_US = 300
-
-    def __init__(self, num_leds, spi_bus=1, spi_device=0,
-                 current=DEFAULT_CURRENT):
+    def __init__(self, num_leds, spi_bus=1, spi_device=0):
         self.num_leds = num_leds
         self._spi = SpiDev()
         self._spi.open(spi_bus, spi_device)
         self._spi.max_speed_hz = SPI_SPEED_HZ
         self._spi.mode = 0b00
         self._spi.lsbfirst = False
-        self._c1, self._c2 = _build_c1c2(current)
         self._pixels = [(0, 0, 0, 0)] * num_leds
 
     def set_pixel(self, index, r, g, b, w=0):
@@ -79,23 +68,13 @@ class TM1815B:
         self._pixels = [(r, g, b, w)] * self.num_leds
 
     def show(self):
-        """Encode C1+C2+pixels and write to SPI."""
+        """Encode pixels in GRBW order and write to SPI."""
         buf = bytearray()
 
-        # Establish idle-HIGH before first data falling edge
-        buf += b'\xFF' * 4
-
-        for byte_val in self._c1:
-            buf += _LUT[byte_val]
-        for byte_val in self._c2:
-            buf += _LUT[byte_val]
-
         for r, g, b, w in self._pixels:
-            # TM1815B wire order: W, R, G, B
-            buf += _LUT[w] + _LUT[r] + _LUT[g] + _LUT[b]
+            buf += _LUT[g] + _LUT[r] + _LUT[b] + _LUT[w]
 
-        # Hold line HIGH for >= 280 µs to latch data
-        buf += b'\xFF' * 60
+        buf += _RESET_BYTES
 
         self._spi.xfer2(list(buf))
 
@@ -111,7 +90,7 @@ class TM1815B:
 # ---- Configuration ----
 
 NUM_LEDS = 12
-strip = TM1815B(NUM_LEDS, spi_bus=1, spi_device=0)
+strip = SK6812(NUM_LEDS, spi_bus=1, spi_device=0)
 
 
 def set_all(r, g, b, w, brightness=1.0):

@@ -2,36 +2,27 @@
 """
 LED controller for Enbrighten RGBW LED Cafe Lights via SPI1.
 
-Drives TM1815B-based RGBW LEDs using raw SPI bit-banging on the
+Drives SK6812-compatible RGBW LEDs using SPI bit-banging on the
 Raspberry Pi 5's hardware SPI1 peripheral.
 
-The TM1815B is a Titan Micro single-wire LED driver (400 kHz variant
-of the TM1814 family) with RGBW support and inverted signal polarity.
+Protocol (800 kHz, non-inverted, SK6812/WS2812B compatible):
+    Line idles LOW.
+    Data 1: HIGH ~833 ns, LOW ~417 ns
+    Data 0: HIGH ~417 ns, LOW ~833 ns
+    Reset:  LOW >= 80 µs
+    Color order: G, R, B, W  (SK6812 RGBW standard)
 
-Protocol details (from WLED source + TM1814 datasheet):
-    Bit rate:   400 kHz (2.5 µs per data bit)
-    Signal:     Inverted — line idles HIGH, pulses go LOW
-    Bit 1:      low ~625 ns,  high ~1875 ns
-    Bit 0:      low ~1875 ns, high ~625 ns
-    Reset:      HIGH >= 280 µs (line returns to idle-high)
-    Color order: W, R, G, B  (white byte first)
-    Frame:      C1, C2, D1, D2, ... Dn
-                C1 = current-setting command (32 bits)
-                C2 = bitwise complement of C1
-                D1..Dn = pixel data (32 bits each: W,R,G,B)
+SPI encoding at 2.4 MHz (~417 ns/SPI-bit), 3 SPI bits per data bit:
+    Data 1 -> 0b110  (HIGH 833 ns, LOW 417 ns)
+    Data 0 -> 0b100  (HIGH 417 ns, LOW 833 ns)
 
-SPI encoding at 1.6 MHz (~625 ns/SPI-bit), 4 SPI bits per data bit:
-    Data 1 (inverted) -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
-    Data 0 (inverted) -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
-
-8 data bits x 4 SPI bits = 32 SPI bits = 4 SPI bytes per colour byte.
+8 data bits × 3 SPI bits = 24 SPI bits = 3 SPI bytes per colour byte.
 
 Hardware notes
 --------------
 * SPI bus 1 (GPIO 20 = SPI1 MOSI) keeps SPI0 free for the nRF24L01+.
 * A bi-directional level shifter sits between GPIO 20 (3.3 V) and the
   LED data-in line (5 V).
-* Colour order on the wire is **W R G B**.
 
 Usage example:
     from led_controller import LEDStrip
@@ -43,77 +34,42 @@ Usage example:
     strip.clear()
 """
 
-import time
 import spidev
 
-
-# SPI clock at 1.6 MHz gives ~625 ns per SPI bit.
-# 4 SPI bits per data bit -> 2.5 µs per data bit = 400 kHz.
-SPI_SPEED_HZ = 1_600_000
-
-RESET_US = 300
-
-# Default per-channel constant current (6-bit value, 0-63).
-# 0 = 6.5 mA (minimum), 63 = maximum current.
-# The TM1814 family uses C1/C2 commands to set drive current.
-DEFAULT_CURRENT = 10
+SPI_SPEED_HZ = 2_400_000
 
 
-def _encode_byte_inverted(value):
-    """Encode one byte into 4 SPI bytes using inverted TM1815B protocol.
+def _encode_byte(value):
+    """Encode one colour byte into 3 SPI bytes for SK6812 protocol.
 
-    Inverted signal: line idles HIGH. A data '1' is a short LOW pulse
-    followed by a long HIGH. A data '0' is a long LOW pulse followed
-    by a short HIGH.
-
-    At 1.6 MHz (625 ns/SPI-bit), 4 SPI bits per data bit:
-        Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
-        Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
+    At 2.4 MHz (417 ns/SPI-bit), 3 SPI bits per data bit:
+        Data 1 -> 0b110  (HIGH 833 ns, LOW 417 ns)
+        Data 0 -> 0b100  (HIGH 417 ns, LOW 833 ns)
     """
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b0111
+            encoded = (encoded << 3) | 0b110
         else:
-            encoded = (encoded << 4) | 0b0001
+            encoded = (encoded << 3) | 0b100
     return [
-        (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,
         (encoded >> 8) & 0xFF,
         encoded & 0xFF,
     ]
 
 
-# Pre-compute lookup table: colour value (0-255) -> 4-byte SPI pattern
-_LUT = [bytes(_encode_byte_inverted(v)) for v in range(256)]
+_LUT = [bytes(_encode_byte(v)) for v in range(256)]
 
-# Idle-high byte: line stays HIGH during reset
-_IDLE_HIGH = 0xFF
-
-
-def _build_c1c2(current_w, current_r, current_g, current_b):
-    """Build the C1 and C2 current-setting command bytes.
-
-    C1 is a 32-bit command encoding 6-bit current values for W, R, G, B
-    with the top 2 bits of each byte set to 0.
-    C2 is the bitwise complement of C1 (for validation by the chip).
-
-    Returns (c1_bytes, c2_bytes) as 4-byte lists each.
-    """
-    c1_w = current_w & 0x3F
-    c1_r = current_r & 0x3F
-    c1_g = current_g & 0x3F
-    c1_b = current_b & 0x3F
-    c1 = bytes([c1_w, c1_r, c1_g, c1_b])
-    c2 = bytes([b ^ 0xFF for b in c1])
-    return c1, c2
+# Reset: hold LOW for >= 80 µs.  At 2.4 MHz each byte is ~3.3 µs,
+# so 30 zero-bytes ≈ 100 µs.
+_RESET_BYTES = b'\x00' * 30
 
 
 class LEDStrip:
-    """High-level driver for TM1815B RGBW LEDs over SPI1."""
+    """High-level driver for SK6812 RGBW LEDs over SPI1."""
 
-    def __init__(self, num_leds, spi_bus=1, brightness=1.0,
-                 current=DEFAULT_CURRENT):
+    def __init__(self, num_leds, spi_bus=1, brightness=1.0):
         self.num_leds = num_leds
         self.brightness = max(0.0, min(1.0, brightness))
 
@@ -122,7 +78,6 @@ class LEDStrip:
         self._spi.max_speed_hz = SPI_SPEED_HZ
         self._spi.mode = 0b00
 
-        self._c1, self._c2 = _build_c1c2(current, current, current, current)
         self._pixels = [(0, 0, 0, 0)] * num_leds
 
     # ----- pixel manipulation ------------------------------------------------
@@ -147,37 +102,20 @@ class LEDStrip:
     def show(self):
         """Push the internal pixel buffer to the physical LED strip.
 
-        Frame format: C1 + C2 + D1 + D2 + ... + Dn
-        Each encoded using inverted 4-SPI-bit-per-data-bit scheme.
-
-        Leading 0xFF bytes establish idle-HIGH before the first falling
-        edge. Trailing 0xFF bytes hold the line HIGH for the >= 280 µs
-        reset/latch period (56 bytes at 1.6 MHz = 280 µs).
+        Encodes pixels in SK6812 GRBW order and appends a LOW reset
+        period (>= 80 µs) so the chips latch the data.
         """
         buf = bytearray()
 
-        # Establish idle-HIGH before first data falling edge
-        buf += b'\xFF' * 4
-
-        # Encode C1 current-setting command
-        for byte_val in self._c1:
-            buf += _LUT[byte_val]
-
-        # Encode C2 (complement of C1)
-        for byte_val in self._c2:
-            buf += _LUT[byte_val]
-
-        # Encode pixel data in WRGB order
         br = self.brightness
         for r, g, b, w in self._pixels:
-            adj_w = int(w * br)
-            adj_r = int(r * br)
             adj_g = int(g * br)
+            adj_r = int(r * br)
             adj_b = int(b * br)
-            buf += _LUT[adj_w] + _LUT[adj_r] + _LUT[adj_g] + _LUT[adj_b]
+            adj_w = int(w * br)
+            buf += _LUT[adj_g] + _LUT[adj_r] + _LUT[adj_b] + _LUT[adj_w]
 
-        # Hold line HIGH for >= 280 µs to latch data
-        buf += b'\xFF' * 60
+        buf += _RESET_BYTES
 
         self._spi.xfer2(list(buf))
 
@@ -203,9 +141,11 @@ class LEDStrip:
 # Quick self-test
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    import time
+
     NUM_LEDS = 12
 
-    print(f"Initialising {NUM_LEDS} TM1815B RGBW LEDs on SPI1 ...")
+    print(f"Initialising {NUM_LEDS} SK6812 RGBW LEDs on SPI1 ...")
     strip = LEDStrip(num_leds=NUM_LEDS)
 
     colours = [
