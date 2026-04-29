@@ -162,8 +162,8 @@ TESTS = [
 ]
 
 
-def run_test(test, duration=5.0):
-    """Send frames continuously for `duration` seconds."""
+def run_test_loop(test):
+    """Send frames continuously until stopped. Returns frame count."""
     spi = SpiDev()
     spi.open(1, 0)
     spi.max_speed_hz = test["speed"]
@@ -173,9 +173,22 @@ def run_test(test, duration=5.0):
     buf = test["builder"]()
     buf_list = list(buf)
     frame_count = 0
+    running = True
 
-    start = time.monotonic()
-    while time.monotonic() - start < duration:
+    print("           Sending... Press Enter to stop.")
+    sys.stdout.flush()
+
+    import threading
+
+    def wait_for_enter():
+        nonlocal running
+        input()
+        running = False
+
+    t = threading.Thread(target=wait_for_enter, daemon=True)
+    t.start()
+
+    while running:
         spi.xfer2(buf_list)
         frame_count += 1
 
@@ -187,21 +200,19 @@ def main():
     print("=" * 60)
     print("  Continuous LED Test — TM1815B Protocol Sweep")
     print(f"  {NUM_LEDS} LEDs, {len(TESTS)} configurations")
-    print("  Each test sends frames continuously for 5 seconds.")
-    print("  Watch the LEDs — note which test changes them.")
+    print("  Press Enter to START each test, Enter again to STOP.")
     print("=" * 60)
 
-    input("\n  Press Enter to begin...\n")
-
     for i, test in enumerate(TESTS, 1):
-        print(f"  [{i}/{len(TESTS)}] {test['name']}")
+        print(f"\n  [{i}/{len(TESTS)}] {test['name']}")
         print(f"           {test['desc']}")
+        input("           Press Enter to start this test...")
         sys.stdout.flush()
 
-        frames = run_test(test, duration=5.0)
-        print(f"           Sent {frames} frames in 5 seconds")
+        frames = run_test_loop(test)
+        print(f"           Sent {frames} frames")
 
-        # Brief pause between tests — hold line HIGH via a short 0xFF burst
+        # Hold line HIGH between tests
         spi = SpiDev()
         spi.open(1, 0)
         spi.max_speed_hz = test["speed"]
@@ -209,16 +220,9 @@ def main():
         spi.xfer2([0xFF] * 200)
         spi.close()
 
-        print(f"           Pausing 3 seconds before next test...")
         time.sleep(3)
-        print()
 
-    print("  Done. Which test (if any) changed the LEDs?")
-    print()
-    print("  If NONE worked, the issue may be:")
-    print("    - MOSI idles LOW between xfer2 calls (corrupts reset)")
-    print("    - The LED IC is not a standard TM1815B")
-    print("    - The LED PCB has its own controller overriding DI")
+    print("\n  Done. Which test (if any) changed the LEDs?")
 
 
 if __name__ == "__main__":
