@@ -23,13 +23,13 @@ NUM_LEDS = 4
 # --- TM1815B inverted encoding (4 SPI bits per data bit) ---
 
 def encode_byte_inv(value):
-    """Data 1 -> 0b0111 (LOW 1, HIGH 3), Data 0 -> 0b0001 (LOW 3, HIGH 1)."""
+    """Logic 1 -> 0b0001 (long LOW 1875ns), Logic 0 -> 0b0111 (short LOW 625ns)."""
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b0111
-        else:
             encoded = (encoded << 4) | 0b0001
+        else:
+            encoded = (encoded << 4) | 0b0111
     return bytes([
         (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,

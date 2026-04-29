@@ -4,16 +4,16 @@ LED Cycling Demo for Enbrighten RGBW LED Cafe Lights.
 
 Drives TM1815B RGBW LEDs via SPI1 MOSI (GPIO 20) through a level shifter.
 
-TM1815B protocol (400 kHz, inverted signal):
-    Line idles HIGH. Pulses go LOW.
-    Data 1: LOW ~625 ns,  HIGH ~1875 ns
-    Data 0: LOW ~1875 ns, HIGH ~625 ns
+TM1815B protocol (400 kHz, return-to-zero):
+    Line idles HIGH. Data encoded as LOW pulses.
+    Logic 1: LOW 1300-2000 ns (typ 1440 ns)
+    Logic 0: LOW 620-820 ns  (typ 720 ns)
     Color order: W, R, G, B
     Frame: C1, C2, D1, D2, ... Dn
 
 SPI encoding at 1.6 MHz, 4 SPI bits per data bit:
-    Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
-    Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
+    Logic 1 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
+    Logic 0 -> 0b0111  (LOW 625 ns,  HIGH 1875 ns)
 """
 
 import time
@@ -26,13 +26,13 @@ DEFAULT_CURRENT = 10
 
 
 def _encode_byte(value):
-    """Encode one byte into 4 SPI bytes using inverted TM1815B protocol."""
+    """Encode one byte into 4 SPI bytes for TM1815B protocol."""
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b0111
-        else:
             encoded = (encoded << 4) | 0b0001
+        else:
+            encoded = (encoded << 4) | 0b0111
     return [
         (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,

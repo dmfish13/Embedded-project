@@ -87,13 +87,13 @@ def build_2m4_grbw(r, g, b, w, num):
 # ---- Encoding C: 1.6 MHz, 4 SPI bits per data bit, inverted (TM1815B) ----
 
 def encode_inv(value):
-    """Inverted: Data 1 -> 0b0111, Data 0 -> 0b0001."""
+    """TM1815B: Logic 1 -> 0b0001 (long LOW), Logic 0 -> 0b0111 (short LOW)."""
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b0111
-        else:
             encoded = (encoded << 4) | 0b0001
+        else:
+            encoded = (encoded << 4) | 0b0111
     return bytes([
         (encoded >> 24) & 0xFF, (encoded >> 16) & 0xFF,
         (encoded >> 8) & 0xFF, encoded & 0xFF,

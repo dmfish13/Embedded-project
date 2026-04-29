@@ -5,17 +5,18 @@ LED controller for Enbrighten RGBW LED Cafe Lights via SPI1.
 Drives TM1815B RGBW LEDs using SPI bit-banging on the Raspberry Pi 5's
 hardware SPI1 peripheral.
 
-Protocol (400 kHz, inverted signal):
-    Line idles HIGH.
-    Data 1: LOW ~625 ns,  HIGH ~1875 ns
-    Data 0: LOW ~1875 ns, HIGH ~625 ns
-    Reset:  HIGH >= 280 µs
+Protocol (400 kHz, return-to-zero):
+    Line idles HIGH. Data encoded as LOW pulses.
+    Logic 1: LOW 1300-2000 ns (typ 1440 ns)
+    Logic 0: LOW 620-820 ns  (typ 720 ns)
+    Bit period: 2.5 µs
+    Reset:  HIGH >= 200 µs
     Color order: W, R, G, B
     Frame: C1 + C2 + D1 + D2 + ... + Dn
 
 SPI encoding at 1.6 MHz (~625 ns/SPI-bit), 4 SPI bits per data bit:
-    Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
-    Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
+    Logic 1 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
+    Logic 0 -> 0b0111  (LOW 625 ns,  HIGH 1875 ns)
 
 8 data bits x 4 SPI bits = 32 SPI bits = 4 SPI bytes per colour byte.
 
@@ -44,18 +45,18 @@ DEFAULT_CURRENT = 10
 
 
 def _encode_byte(value):
-    """Encode one byte into 4 SPI bytes using inverted TM1815B protocol.
+    """Encode one byte into 4 SPI bytes for TM1815B protocol.
 
     At 1.6 MHz (625 ns/SPI-bit), 4 SPI bits per data bit:
-        Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
-        Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
+        Logic 1 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)  T1l: 1300-2000 ns
+        Logic 0 -> 0b0111  (LOW 625 ns,  HIGH 1875 ns) T0l: 620-820 ns
     """
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b0111
-        else:
             encoded = (encoded << 4) | 0b0001
+        else:
+            encoded = (encoded << 4) | 0b0111
     return [
         (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,
@@ -113,8 +114,8 @@ class LEDStrip:
     def show(self):
         """Push pixel buffer to the LED strip.
 
-        Leading 0xFF bytes establish idle-HIGH. Trailing 0xFF bytes
-        hold the line HIGH for the >= 280 µs reset/latch period.
+        Leading 0xFF bytes establish idle-HIGH reset (>= 200 µs).
+        Trailing 0xFF bytes hold HIGH for the latch/reset period.
         """
         buf = bytearray(b'\xFF' * 80)
 
