@@ -74,7 +74,7 @@ class TM1815B:
 
     def show(self):
         """Encode C1+C2+pixels and write to SPI."""
-        buf = bytearray(b'\xFF' * 4)
+        buf = bytearray(b'\xFF' * 80)
 
         for byte_val in self._c1:
             buf += _LUT[byte_val]

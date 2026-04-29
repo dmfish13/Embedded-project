@@ -116,7 +116,7 @@ class LEDStrip:
         Leading 0xFF bytes establish idle-HIGH. Trailing 0xFF bytes
         hold the line HIGH for the >= 280 µs reset/latch period.
         """
-        buf = bytearray(b'\xFF' * 4)
+        buf = bytearray(b'\xFF' * 80)
 
         for byte_val in self._c1:
             buf += _LUT[byte_val]

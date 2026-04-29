@@ -105,7 +105,7 @@ def build_tm1815b_wrgb(r, g, b, w, num, current=10):
     c1_val = current & 0x3F
     c1 = bytes([c1_val] * 4)
     c2 = bytes([b ^ 0xFF for b in c1])
-    buf = bytearray(b'\xFF' * 4)  # idle-HIGH preamble
+    buf = bytearray(b'\xFF' * 80)  # idle-HIGH preamble (400 µs >= 280 µs reset)
     for byte_val in c1:
         buf += lut[byte_val]
     for byte_val in c2:
@@ -119,7 +119,7 @@ def build_tm1815b_wrgb(r, g, b, w, num, current=10):
 def build_tm1815b_no_c1c2(r, g, b, w, num):
     """TM1815B encoding but without C1/C2 header."""
     lut = [encode_inv(v) for v in range(256)]
-    buf = bytearray(b'\xFF' * 4)
+    buf = bytearray(b'\xFF' * 80)
     for _ in range(num):
         buf += lut[w] + lut[r] + lut[g] + lut[b]
     buf += b'\xFF' * 60
