@@ -13,8 +13,8 @@ TM1815B protocol (400 kHz, inverted signal):
     Frame: C1, C2, D1, D2, ... Dn
 
 SPI encoding at 1.6 MHz, 4 SPI bits per data bit:
-    Data 1 -> 0b1000  (low 625 ns, high 1875 ns)
-    Data 0 -> 0b1110  (low 1875 ns, high 625 ns)
+    Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
+    Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
 """
 
 import time
@@ -34,9 +34,9 @@ def _encode_byte_inverted(value):
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b1000
+            encoded = (encoded << 4) | 0b0111
         else:
-            encoded = (encoded << 4) | 0b1110
+            encoded = (encoded << 4) | 0b0001
     return [
         (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,
@@ -82,6 +82,9 @@ class TM1815B:
         """Encode C1+C2+pixels and write to SPI."""
         buf = bytearray()
 
+        # Establish idle-HIGH before first data falling edge
+        buf += b'\xFF' * 4
+
         for byte_val in self._c1:
             buf += _LUT[byte_val]
         for byte_val in self._c2:
@@ -91,8 +94,10 @@ class TM1815B:
             # TM1815B wire order: W, R, G, B
             buf += _LUT[w] + _LUT[r] + _LUT[g] + _LUT[b]
 
+        # Hold line HIGH for >= 280 µs to latch data
+        buf += b'\xFF' * 60
+
         self._spi.xfer2(list(buf))
-        time.sleep(self.RESET_US / 1_000_000)
 
     def clear(self):
         self.set_all(0, 0, 0, 0)

@@ -21,8 +21,8 @@ Protocol details (from WLED source + TM1814 datasheet):
                 D1..Dn = pixel data (32 bits each: W,R,G,B)
 
 SPI encoding at 1.6 MHz (~625 ns/SPI-bit), 4 SPI bits per data bit:
-    Data 1 (inverted) -> 0b1000  (low 625 ns, high 1875 ns)
-    Data 0 (inverted) -> 0b1110  (low 1875 ns, high 625 ns)
+    Data 1 (inverted) -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
+    Data 0 (inverted) -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
 
 8 data bits x 4 SPI bits = 32 SPI bits = 4 SPI bytes per colour byte.
 
@@ -67,15 +67,15 @@ def _encode_byte_inverted(value):
     by a short HIGH.
 
     At 1.6 MHz (625 ns/SPI-bit), 4 SPI bits per data bit:
-        Data 1 -> 0b1000  (LOW 625 ns, HIGH 1875 ns)
-        Data 0 -> 0b1110  (LOW 1875 ns, HIGH 625 ns)
+        Data 1 -> 0b0111  (LOW 625 ns, HIGH 1875 ns)
+        Data 0 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
     """
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b1000
+            encoded = (encoded << 4) | 0b0111
         else:
-            encoded = (encoded << 4) | 0b1110
+            encoded = (encoded << 4) | 0b0001
     return [
         (encoded >> 24) & 0xFF,
         (encoded >> 16) & 0xFF,
@@ -149,8 +149,15 @@ class LEDStrip:
 
         Frame format: C1 + C2 + D1 + D2 + ... + Dn
         Each encoded using inverted 4-SPI-bit-per-data-bit scheme.
+
+        Leading 0xFF bytes establish idle-HIGH before the first falling
+        edge. Trailing 0xFF bytes hold the line HIGH for the >= 280 µs
+        reset/latch period (56 bytes at 1.6 MHz = 280 µs).
         """
         buf = bytearray()
+
+        # Establish idle-HIGH before first data falling edge
+        buf += b'\xFF' * 4
 
         # Encode C1 current-setting command
         for byte_val in self._c1:
@@ -169,9 +176,10 @@ class LEDStrip:
             adj_b = int(b * br)
             buf += _LUT[adj_w] + _LUT[adj_r] + _LUT[adj_g] + _LUT[adj_b]
 
+        # Hold line HIGH for >= 280 µs to latch data
+        buf += b'\xFF' * 60
+
         self._spi.xfer2(list(buf))
-        # Reset: line returns to idle-high for >= 280 µs
-        time.sleep(RESET_US / 1_000_000)
 
     # ----- brightness ---------------------------------------------------------
 
