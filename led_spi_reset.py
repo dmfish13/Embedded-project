@@ -2,27 +2,24 @@
 """
 LED SPI1 Reset Tool
 
-Fully resets the SPI1 peripheral and the TM1815B LED chain.
-Unbinds and rebinds the spidev driver to clear any stale kernel state,
-restores GPIO 20 to SPI1 MOSI, then sends all-off frames to the LEDs.
+Fully resets the SPI1 peripheral by killing processes holding the
+device, removing and re-adding the device tree overlay, and reloading
+the spidev kernel module. Then sends all-off frames to the LEDs and
+drives GPIO 20 LOW to cut parasitic power.
 
-Requires sudo (for driver unbind/rebind).
+Requires sudo.
 
 Usage:
     sudo python3 led_spi_reset.py
 """
 
-import glob
 import os
 import subprocess
 import time
-from pathlib import Path
 
 NUM_LEDS = 8
 SPI_SPEED = 2_000_000
 PIN = 20
-
-SPIDEV_DRIVER = Path("/sys/bus/spi/drivers/spidev")
 
 
 def encode_byte(value):
@@ -55,62 +52,60 @@ def build_data_payload():
     return list(buf)
 
 
-def find_spi1_device():
-    """Find the sysfs device name for SPI1.0 (e.g. 'spi1.0')."""
-    for path in SPIDEV_DRIVER.glob("spi*"):
-        if path.name.startswith("spi1."):
-            return path.name
-    # Try looking in /sys/bus/spi/devices/ instead
-    devices = Path("/sys/bus/spi/devices")
-    for path in devices.glob("spi1.*"):
-        return path.name
-    return None
-
-
-def reset_spi_driver():
-    """Unbind and rebind the spidev driver for SPI1 to clear kernel state."""
-    dev_name = find_spi1_device()
-
-    if dev_name:
-        print(f"  Unbinding {dev_name} from spidev driver...")
-        unbind = SPIDEV_DRIVER / "unbind"
-        try:
-            unbind.write_text(dev_name)
-        except OSError as e:
-            print(f"  Unbind note: {e}")
-        time.sleep(0.2)
-
-        print(f"  Rebinding {dev_name} to spidev driver...")
-        bind = SPIDEV_DRIVER / "bind"
-        try:
-            bind.write_text(dev_name)
-        except OSError as e:
-            print(f"  Rebind note: {e}")
-        time.sleep(0.2)
-    else:
-        print("  SPI1 device not found in sysfs, trying dtoverlay reload...")
-        subprocess.run(["sudo", "dtoverlay", "-r", "spi1-1cs"],
-                       capture_output=True)
-        time.sleep(0.5)
-        subprocess.run(["sudo", "dtoverlay", "spi1-1cs"],
-                       capture_output=True)
-        time.sleep(0.5)
-
-    # Verify /dev/spidev1.0 exists
-    if os.path.exists("/dev/spidev1.0"):
-        print("  /dev/spidev1.0 OK")
-    else:
-        print("  WARNING: /dev/spidev1.0 not found!")
+def run(cmd, **kwargs):
+    return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
 
 
 def main():
-    print("Step 1: Resetting SPI1 driver...")
-    reset_spi_driver()
+    # Step 1: Kill any process holding /dev/spidev1.0 open
+    print("Step 1: Killing processes using /dev/spidev1.0...")
+    result = run(["fuser", "-k", "/dev/spidev1.0"])
+    if result.returncode == 0:
+        print("  Killed stale process(es)")
+        time.sleep(0.5)
+    else:
+        print("  No processes using the device")
 
-    print("Step 2: Restoring GPIO 20 to SPI1 MOSI (alt5)...")
-    subprocess.run(["pinctrl", "set", str(PIN), "a5"], capture_output=True)
+    # Step 2: Remove the SPI1 device tree overlay
+    print("Step 2: Removing SPI1 overlay...")
+    result = run(["dtoverlay", "-r", "spi1-1cs"])
+    if result.returncode == 0:
+        print("  Overlay removed")
+    else:
+        print(f"  Note: {result.stderr.strip() or 'overlay may not be loaded'}")
+    time.sleep(0.3)
+
+    # Step 3: Reload spidev kernel module
+    print("Step 3: Reloading spidev kernel module...")
+    run(["rmmod", "spidev"])
+    time.sleep(0.2)
+    run(["modprobe", "spidev"])
+    time.sleep(0.2)
+    print("  spidev reloaded")
+
+    # Step 4: Re-add the SPI1 device tree overlay
+    print("Step 4: Re-adding SPI1 overlay...")
+    result = run(["dtoverlay", "spi1-1cs"])
+    if result.returncode == 0:
+        print("  Overlay added")
+    else:
+        print(f"  Error: {result.stderr.strip()}")
+    time.sleep(0.5)
+
+    # Verify device exists
+    if os.path.exists("/dev/spidev1.0"):
+        print("  /dev/spidev1.0 OK")
+    else:
+        print("  WARNING: /dev/spidev1.0 not found! Check dtoverlay config.")
+        return
+
+    # Step 5: Restore GPIO 20 to SPI1 MOSI
+    print("Step 5: Restoring GPIO 20 to SPI1 MOSI (alt5)...")
+    run(["pinctrl", "set", str(PIN), "a5"])
     time.sleep(0.1)
 
+    # Step 6: Open SPI and send reset + all-off frames
+    print("Step 6: Sending reset and all-off frames to LEDs...")
     from spidev import SpiDev
     spi = SpiDev()
     spi.open(1, 0)
@@ -118,12 +113,10 @@ def main():
     spi.mode = 0b00
     spi.lsbfirst = False
 
-    print("Step 3: Sending sustained reset (500 ms HIGH)...")
     end = time.monotonic() + 0.5
     while time.monotonic() < end:
         spi.xfer2([0xFF] * 500)
 
-    print("Step 4: Sending all-off frames...")
     preamble = [0xFF] * 80
     data = build_data_payload()
     trailing = [0xFF] * 80
@@ -134,10 +127,11 @@ def main():
 
     spi.close()
 
-    print("Step 5: Setting GPIO 20 to output LOW (stop parasitic power)...")
-    subprocess.run(["pinctrl", "set", str(PIN), "op", "dl"], capture_output=True)
-    print("Reset complete. LEDs off, GPIO 20 LOW."
-          " Run `pinctrl set 20 a5` to restore SPI before next LED script.")
+    # Step 7: Drive GPIO 20 LOW to cut parasitic power
+    print("Step 7: Setting GPIO 20 LOW...")
+    run(["pinctrl", "set", str(PIN), "op", "dl"])
+
+    print("Reset complete. LEDs off, GPIO 20 LOW.")
 
 
 if __name__ == "__main__":
