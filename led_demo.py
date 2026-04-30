@@ -16,10 +16,13 @@ SPI encoding at 1.6 MHz, 4 SPI bits per data bit:
     Logic 0 -> 0b0111  (LOW 625 ns,  HIGH 1875 ns)
 """
 
+import subprocess
 import time
 import random
 import math
 from spidev import SpiDev
+
+subprocess.run(["pinctrl", "set", "20", "a5"], capture_output=True)
 
 SPI_SPEED_HZ = 2_000_000
 DEFAULT_CURRENT = 30
@@ -95,10 +98,12 @@ class TM1815B:
     def close(self):
         self.clear()
         self._spi.close()
+        subprocess.run(["pinctrl", "set", "20", "op", "dl"],
+                       capture_output=True)
 
 
 NUM_LEDS = 4
-strip = TM1815B(NUM_LEDS, spi_bus=1, spi_device=0)
+strip = None
 
 
 def set_all(r, g, b, w, brightness=1.0):
@@ -169,24 +174,29 @@ def phase_4_shutdown():
 
 
 def main():
+    global strip
     print("=" * 50)
     print("  Enbrighten RGBW LED Cycling Demo")
     print("=" * 50)
+
+    strip = TM1815B(NUM_LEDS, spi_bus=1, spi_device=0)
 
     print("\n  Starting in 5 seconds (LEDs off)...")
     clear()
     time.sleep(5)
 
-    try:
-        phase_1_color_cycle()
-        phase_2_brightness_test()
-        phase_3_fade()
-        phase_4_shutdown()
-    except KeyboardInterrupt:
-        print("\n\nInterrupted.")
-        strip.close()
-        print("  LEDs off.")
+    phase_1_color_cycle()
+    phase_2_brightness_test()
+    phase_3_fade()
+    phase_4_shutdown()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\nInterrupted.")
+    finally:
+        if strip:
+            strip.close()
+        print("  LEDs off.")
