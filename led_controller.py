@@ -42,7 +42,10 @@ Usage example:
     strip.clear()
 """
 
+import subprocess
 import spidev
+
+subprocess.run(["pinctrl", "set", "20", "a5"], capture_output=True)
 
 SPI_SPEED_HZ = 2_000_000
 DEFAULT_CURRENT = 30

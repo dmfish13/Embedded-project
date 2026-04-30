@@ -8,8 +8,11 @@ If cycling continues, there is a wiring or config issue between
 SPI1 MOSI (GPIO 20) and the LED data-in pin.
 """
 
+import subprocess
 import time
 from spidev import SpiDev
+
+subprocess.run(["pinctrl", "set", "20", "a5"], capture_output=True)
 
 spi = SpiDev()
 spi.open(1, 0)

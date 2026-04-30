@@ -10,8 +10,11 @@ Usage:
     python3 led_protocol_test.py
 """
 
+import subprocess
 import time
 from spidev import SpiDev
+
+subprocess.run(["pinctrl", "set", "20", "a5"], capture_output=True)
 
 NUM_LEDS = 4
 

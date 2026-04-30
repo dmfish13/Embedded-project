@@ -133,7 +133,11 @@ def main():
         spi.xfer2(trailing)
 
     spi.close()
-    print("Reset complete. LEDs off, SPI1 ready for new commands.")
+
+    print("Step 5: Setting GPIO 20 to output LOW (stop parasitic power)...")
+    subprocess.run(["pinctrl", "set", str(PIN), "op", "dl"], capture_output=True)
+    print("Reset complete. LEDs off, GPIO 20 LOW."
+          " Run `pinctrl set 20 a5` to restore SPI before next LED script.")
 
 
 if __name__ == "__main__":
