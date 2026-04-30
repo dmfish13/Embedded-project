@@ -36,19 +36,18 @@ def encode_byte(value):
 LUT = [encode_byte(v) for v in range(256)]
 
 
-def build_off_frame():
-    """Build a complete all-off frame: reset + C1 + C2 + pixels(0) + reset."""
+def build_data_payload():
+    """Build just the C1 + C2 + pixel data portion (no reset padding)."""
     c1 = bytes([0x1E, 0x1E, 0x1E, 0x1E])
     c2 = bytes([v ^ 0xFF for v in c1])
 
-    buf = bytearray(b'\xFF' * 500)
+    buf = bytearray()
     for bv in c1:
         buf += LUT[bv]
     for bv in c2:
         buf += LUT[bv]
     for _ in range(NUM_LEDS):
         buf += LUT[0] + LUT[0] + LUT[0] + LUT[0]
-    buf += b'\xFF' * 500
     return list(buf)
 
 
@@ -70,10 +69,15 @@ while time.monotonic() < end:
     spi.xfer2([0xFF] * 500)
 
 # Step 3: Send complete all-off frames to put chips in known state
+# Split into preamble / data / trailing to stay under spidev buffer limit
 print("Sending all-off frames...")
-frame = build_off_frame()
+preamble = [0xFF] * 80
+data = build_data_payload()
+trailing = [0xFF] * 80
 for i in range(20):
-    spi.xfer2(frame)
+    spi.xfer2(preamble)
+    spi.xfer2(data)
+    spi.xfer2(trailing)
 
 spi.close()
 
