@@ -4,7 +4,10 @@ LED SPI1 Reset Tool
 
 Sends a long reset pulse followed by a valid all-off frame to force
 every TM1815B in the chain out of demo mode and into a known state,
-ready to receive new instructions.
+then sets GPIO 20 to output LOW so no stray signals reach the PCBs.
+
+Other LED scripts must call `pinctrl set 20 a5` to restore SPI1 MOSI
+before opening the SPI device.
 
 Usage:
     python3 led_spi_reset.py
@@ -75,4 +78,8 @@ for i in range(20):
     spi.xfer2(frame)
 
 spi.close()
-print("Reset complete. LEDs should be off and ready for new commands.")
+
+# Step 4: Switch GPIO 20 to output LOW so no stray signal reaches the PCBs
+print("Setting GPIO 20 to output LOW...")
+subprocess.run(["pinctrl", "set", str(PIN), "op", "dl"], capture_output=True)
+print("Reset complete. LEDs off, GPIO 20 held LOW.")
