@@ -88,26 +88,19 @@ def _build_c1c2(current_w, current_r, current_g, current_b):
 
 
 class LEDStrip:
-    """High-level wrapper around rpi5-ws2812 for RGBW LED control."""
 
-    def __init__(self, num_leds, spi_bus=1, brightness=1.0):
-        """Initialise the LED strip.
-
-        Args:
-            num_leds:   Number of RGBW LEDs in the string.
-            spi_bus:    SPI bus number (default 1 to avoid conflicting
-                        with the nRF24L01+ on SPI0).
-            brightness: Global brightness multiplier (0.0 – 1.0).
-        """
+    def __init__(self, num_leds, spi_bus=1, brightness=1.0,
+                 current=DEFAULT_CURRENT):
         self.num_leds = num_leds
         self.brightness = max(0.0, min(1.0, brightness))
-
-        # Initialise the strip on SPI1 with GRBW colour order for RGBW LEDs.
-        # rpi5-ws2812 expects: ws2812(num_leds, spi_bus, color_order)
-        self.strip = ws2812(num_leds, spi_bus, "GRBW")
-
-        # Internal pixel buffer: list of (R, G, B, W) tuples
         self._pixels = [(0, 0, 0, 0)] * num_leds
+        self._c1, self._c2 = _build_c1c2(current, current, current, current)
+
+        self._spi = spidev.SpiDev()
+        self._spi.open(spi_bus, 0)
+        self._spi.max_speed_hz = SPI_SPEED_HZ
+        self._spi.mode = 0b00
+        self._spi.lsbfirst = False
 
     def set_pixel(self, index, r, g, b, w=0):
         """Set a single pixel to the given RGBW colour.
