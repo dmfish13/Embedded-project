@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
-Single-frame LED test — sends ONE frame, then holds GPIO 20 HIGH.
+Single-frame LED test — sends ONE frame at a time via SPI.
 
-Unlike the continuous test, this avoids inter-transfer MOSI glitches
-by switching GPIO 20 to output-HIGH after the SPI transfer, ensuring
-the TM1815B sees a clean >= 200 µs reset to latch the data.
+No GPIO mode switching — uses only SPI transfers.
 
 Usage:
     python3 led_single_frame_test.py
 """
 
 import time
-import subprocess
 from spidev import SpiDev
 
 NUM_LEDS = 4
+SPI_SPEED = 2_000_000
 
 
 def encode_byte(value):
@@ -36,59 +34,33 @@ def encode_byte(value):
 LUT = [encode_byte(v) for v in range(256)]
 
 
-def build_frame(r, g, b, w, num_leds, current=10):
-    """Build one complete TM1815B frame.
-
-    Structure: [preamble 0xFF] [C1] [C2] [D1..Dn] [trailing 0xFF reset]
-    """
+def build_frame(r, g, b, w, num_leds, current=30):
     c1_val = current & 0x3F
     c1 = bytes([c1_val] * 4)
     c2 = bytes([c1_val ^ 0xFF] * 4)
 
     buf = bytearray(b'\xFF' * 80)
-
     for bv in c1:
         buf += LUT[bv]
     for bv in c2:
         buf += LUT[bv]
-
     for _ in range(num_leds):
         buf += LUT[w] + LUT[r] + LUT[g] + LUT[b]
-
     buf += b'\xFF' * 100
-
     return buf
 
 
-def gpio_set_high(pin=20):
-    """Configure GPIO pin as output HIGH using pinctrl (Pi 5)."""
-    subprocess.run(["pinctrl", "set", str(pin), "op", "dh"],
-                   capture_output=True)
-
-
-def gpio_release(pin=20):
-    """Release GPIO pin back to alt function for SPI."""
-    subprocess.run(["pinctrl", "set", str(pin), "a5"],
-                   capture_output=True)
-
-
-def send_frame(r, g, b, w, current=10, label=""):
-    """Send a single TM1815B frame and hold the line HIGH afterward."""
+def send_frame(r, g, b, w, current=30, label=""):
+    """Send a single TM1815B frame via SPI."""
     buf = build_frame(r, g, b, w, NUM_LEDS, current=current)
-
-    gpio_release(20)
 
     spi = SpiDev()
     spi.open(1, 0)
-    spi.max_speed_hz = 1_600_000
+    spi.max_speed_hz = SPI_SPEED
     spi.mode = 0b00
     spi.lsbfirst = False
-
     spi.xfer2(list(buf))
-
     spi.close()
-
-    gpio_set_high(20)
 
     if label:
         print(f"  Sent: {label}  (RGBW={r},{g},{b},{w}  current={current})")
@@ -97,17 +69,14 @@ def send_frame(r, g, b, w, current=10, label=""):
 def main():
     print("=" * 55)
     print("  Single-Frame LED Test")
-    print(f"  {NUM_LEDS} LEDs, TM1815B @ 1.6 MHz")
+    print(f"  {NUM_LEDS} LEDs, TM1815B @ {SPI_SPEED/1e6:.1f} MHz")
     print("=" * 55)
-
-    gpio_set_high(20)
-    time.sleep(0.5)
 
     input("\n  Press Enter to begin...\n")
 
     tests = [
         ("All WHITE — max current", 255, 255, 255, 255, 63),
-        ("All WHITE — current=10",  255, 255, 255, 255, 10),
+        ("All WHITE — current=30",  255, 255, 255, 255, 30),
         ("Pure RED",                255, 0,   0,   0,   30),
         ("Pure GREEN",              0,   255, 0,   0,   30),
         ("Pure BLUE",               0,   0,   255, 0,   30),
@@ -120,9 +89,6 @@ def main():
         time.sleep(5)
 
     print("\n  Test complete.")
-    print("  If no colors appeared, try running the continuous version")
-    print("  to confirm the signal still stops cycling:")
-    print("    python3 led_continuous_test.py")
 
 
 if __name__ == "__main__":

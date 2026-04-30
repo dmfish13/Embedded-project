@@ -12,7 +12,6 @@ Usage:
 
 import time
 import sys
-import subprocess
 import threading
 from spidev import SpiDev
 
@@ -54,29 +53,20 @@ def build_frame(r, g, b, w, num_leds, current=30,
     return buf
 
 
-def gpio_high(pin=20):
-    """Set GPIO 20 to output HIGH (hold DIN in reset state)."""
-    subprocess.run(["pinctrl", "set", str(pin), "op", "dh"],
-                   capture_output=True)
-
-
-def gpio_to_spi(pin=20):
-    """Return GPIO 20 to SPI1 MOSI alt function."""
-    subprocess.run(["pinctrl", "set", str(pin), "a5"],
-                   capture_output=True)
-
-
-def hold_reset(seconds):
-    """Hold DIN HIGH via GPIO for a specified duration."""
-    gpio_high(20)
-    print(f"    Holding DIN HIGH (reset) for {seconds} seconds...")
-    time.sleep(seconds)
+def spi_reset(seconds, speed=SPI_SPEED):
+    """Send sustained HIGH via SPI for the given duration (no GPIO switch)."""
+    spi = SpiDev()
+    spi.open(1, 0)
+    spi.max_speed_hz = speed
+    spi.mode = 0b00
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        spi.xfer2([0xFF] * 500)
+    spi.close()
 
 
 def send_continuous(r, g, b, w, num_leds, label=""):
     """Send frames continuously until Enter is pressed."""
-    gpio_to_spi(20)
-
     spi = SpiDev()
     spi.open(1, 0)
     spi.max_speed_hz = SPI_SPEED
@@ -105,7 +95,6 @@ def send_continuous(r, g, b, w, num_leds, label=""):
         frame_count += 1
 
     spi.close()
-    gpio_high(20)
     return frame_count
 
 
@@ -154,15 +143,12 @@ def main():
         },
     ]
 
-    # Start with GPIO HIGH
-    gpio_high(20)
-    time.sleep(0.5)
-
     for i, test in enumerate(tests, 1):
         print(f"\n  [{i}/{len(tests)}] {test['name']}")
         input("    Press Enter to start...")
 
-        hold_reset(test["reset_s"])
+        print(f"    Sending SPI reset for {test['reset_s']} seconds...")
+        spi_reset(test["reset_s"])
 
         frames = send_continuous(
             test["r"], test["g"], test["b"], test["w"],
@@ -282,9 +268,6 @@ def protocol_test():
         (2_000_000, "2.0 MHz (500 kHz data rate — above spec, known to work for LED1)"),
     ]
 
-    gpio_high(20)
-    time.sleep(0.5)
-
     test_num = 0
     for speed_hz, speed_desc in speeds:
         for pset in pixel_sets:
@@ -296,8 +279,9 @@ def protocol_test():
 
             input("      Press Enter to start...")
 
-            # Phase 1: Hold DIN HIGH via GPIO for clean reset
-            hold_reset(3.0)
+            # Phase 1: Send reset via SPI (sustained HIGH)
+            print("      Sending SPI reset for 3 seconds...")
+            spi_reset(3.0, speed=speed_hz)
 
             # Phase 2: Build and send one protocol-compliant frame
             frame = build_protocol_frame(pset["pixels"], current=30,
@@ -305,22 +289,15 @@ def protocol_test():
             print(f"      Frame: {len(frame)} bytes "
                   f"({len(frame) * 8 / speed_hz * 1000:.1f} ms)")
 
-            gpio_to_spi(20)
             spi = SpiDev()
             spi.open(1, 0)
             spi.max_speed_hz = speed_hz
             spi.mode = 0b00
             spi.lsbfirst = False
-
-            # Send the frame once — the large buffer ensures DMA
             spi.xfer2(list(frame))
-
             spi.close()
 
-            # Phase 3: Immediately hold DIN HIGH via GPIO for latch
-            gpio_high(20)
-            print("      Sent 1 frame. Holding DIN HIGH (latch reset).")
-            print("      Observe LEDs for 5 seconds...")
+            print("      Sent 1 frame. Observing for 5 seconds...")
             time.sleep(5)
 
             # Phase 4: Now send continuously to maintain the state
@@ -347,11 +324,10 @@ def protocol_test():
 
 if __name__ == "__main__":
     import sys as _sys
-    if len(_sys.argv) > 1 and _sys.argv[1] == "protocol":
-        protocol_test()
-    else:
-        main()
-
-
-if __name__ == "__main__":
-    main()
+    try:
+        if len(_sys.argv) > 1 and _sys.argv[1] == "protocol":
+            protocol_test()
+        else:
+            main()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
