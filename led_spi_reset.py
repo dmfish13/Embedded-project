@@ -41,14 +41,14 @@ def build_off_frame():
     c1 = bytes([0x1E, 0x1E, 0x1E, 0x1E])
     c2 = bytes([v ^ 0xFF for v in c1])
 
-    buf = bytearray(b'\xFF' * 2000)
+    buf = bytearray(b'\xFF' * 500)
     for bv in c1:
         buf += LUT[bv]
     for bv in c2:
         buf += LUT[bv]
     for _ in range(NUM_LEDS):
         buf += LUT[0] + LUT[0] + LUT[0] + LUT[0]
-    buf += b'\xFF' * 2000
+    buf += b'\xFF' * 500
     return list(buf)
 
 
