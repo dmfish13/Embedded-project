@@ -2,86 +2,30 @@
 """
 LED controller for Enbrighten RGBW LED Cafe Lights via SPI1.
 
-Drives TM1815B RGBW LEDs using SPI bit-banging on the Raspberry Pi 5's
-hardware SPI1 peripheral.
-
-Protocol (400 kHz, return-to-zero):
-    Line idles HIGH. Data encoded as LOW pulses.
-    Logic 1: LOW 1300-2000 ns (typ 1440 ns)
-    Logic 0: LOW 620-820 ns  (typ 720 ns)
-    Bit period: 2.5 µs
-    Reset:  HIGH >= 200 µs
-    Color order: W, R, G, B
-    Frame: C1 + C2 + D1 + D2 + ... + Dn
-
-SPI encoding at 2.0 MHz (500 ns/SPI-bit), 4 SPI bits per data bit:
-    Logic 1 -> 0b0001  (LOW 1500 ns, HIGH 500 ns)
-    Logic 0 -> 0b0111  (LOW 500 ns,  HIGH 1500 ns)
-
-8 data bits x 4 SPI bits = 32 SPI bits = 4 SPI bytes per colour byte.
-
-Note: 1.6 MHz (exact 400 kHz data rate) fails on the Pi 5 due to
-SPI inter-byte gaps. 2.0 MHz hits a clean clock divider and
-produces gap-free DMA transfers.
+Uses the rpi5-ws2812 library, which drives WS2812 / SK6812-compatible
+LEDs through the Raspberry Pi 5's hardware SPI peripheral.
 
 Hardware notes
 --------------
-* SPI bus 1 (GPIO 20 = SPI1 MOSI) keeps SPI0 free for the nRF24L01+.
-* A 3.3V-to-5V level shifter is required between GPIO 20 and the LED
-  data-in line. TM1815B needs 5V logic levels.
-* The on-board driver IC must be disconnected so the Pi is the sole
-  data source on the LED chain.
+* SPI bus 1 is used (GPIO 20 = SPI1 MOSI) to keep SPI0 free for the
+  nRF24L01+ radio.
+* An Adafruit bi-directional level shifter sits between Pi GPIO 20 (3.3 V)
+  and the LED data-in line (5 V).
+* The Enbrighten LEDs are SK6812-RGBW (4 colour channels per pixel).
+  The rpi5-ws2812 library must be told to use **GRBW** colour order
+  so the White channel is included.
 
 Usage example:
     from led_controller import LEDStrip
 
-    strip = LEDStrip(num_leds=4)
+    strip = LEDStrip(num_leds=12)
     strip.set_all(255, 0, 0, 0)   # all red
     strip.set_pixel(0, 0, 0, 0, 255)  # first pixel pure white
     strip.show()
     strip.clear()
 """
 
-import spidev
-
-SPI_SPEED_HZ = 2_000_000
-DEFAULT_CURRENT = 30
-
-
-def _encode_byte(value):
-    """Encode one byte into 4 SPI bytes for TM1815B protocol.
-
-    At 2.0 MHz (500 ns/SPI-bit), 4 SPI bits per data bit:
-        Logic 1 -> 0b0001  (LOW 1500 ns, HIGH 500 ns)
-        Logic 0 -> 0b0111  (LOW 500 ns,  HIGH 1500 ns)
-    """
-    encoded = 0
-    for bit_pos in range(7, -1, -1):
-        if value & (1 << bit_pos):
-            encoded = (encoded << 4) | 0b0001
-        else:
-            encoded = (encoded << 4) | 0b0111
-    return [
-        (encoded >> 24) & 0xFF,
-        (encoded >> 16) & 0xFF,
-        (encoded >> 8) & 0xFF,
-        encoded & 0xFF,
-    ]
-
-
-_LUT = [bytes(_encode_byte(v)) for v in range(256)]
-
-
-def _build_c1c2(current_w, current_r, current_g, current_b):
-    """Build C1 and C2 current-setting command bytes.
-
-    C1 encodes 6-bit current values for W, R, G, B.
-    C2 is the bitwise complement of C1.
-    """
-    c1 = bytes([current_w & 0x3F, current_r & 0x3F,
-                current_g & 0x3F, current_b & 0x3F])
-    c2 = bytes([b ^ 0xFF for b in c1])
-    return c1, c2
+from rpi5_ws2812 import ws2812
 
 
 class LEDStrip:
@@ -105,6 +49,8 @@ class LEDStrip:
 
         # Internal pixel buffer: list of (R, G, B, W) tuples
         self._pixels = [(0, 0, 0, 0)] * num_leds
+
+    # ----- pixel manipulation ------------------------------------------------
 
     def set_pixel(self, index, r, g, b, w=0):
         """Set a single pixel to the given RGBW colour.
@@ -130,33 +76,28 @@ class LEDStrip:
         self.set_all(0, 0, 0, 0)
         self.show()
 
+    # ----- output -------------------------------------------------------------
+
     def show(self):
-        """Push pixel buffer to the LED strip.
+        """Push the internal pixel buffer to the physical LED strip."""
+        for i, (r, g, b, w) in enumerate(self._pixels):
+            # Apply brightness scaling
+            br = self.brightness
+            adj_r = int(r * br)
+            adj_g = int(g * br)
+            adj_b = int(b * br)
+            adj_w = int(w * br)
+            # rpi5-ws2812 set_pixel: (index, red, green, blue, white)
+            self.strip.set_pixel(i, adj_r, adj_g, adj_b, adj_w)
+        self.strip.show()
 
-        Leading 0xFF bytes establish idle-HIGH reset (>= 200 µs).
-        Trailing 0xFF bytes hold HIGH for the latch/reset period.
-        """
-        buf = bytearray(b'\xFF' * 80)
-
-        for byte_val in self._c1:
-            buf += _LUT[byte_val]
-        for byte_val in self._c2:
-            buf += _LUT[byte_val]
-
-        br = self.brightness
-        for r, g, b, w in self._pixels:
-            buf += (_LUT[int(w * br)] + _LUT[int(r * br)] +
-                    _LUT[int(g * br)] + _LUT[int(b * br)])
-
-        buf += b'\xFF' * 60
-
-        data = list(buf)
-        for _ in range(3):
-            self._spi.xfer2(data)
+    # ----- brightness ---------------------------------------------------------
 
     def set_brightness(self, level):
         """Set global brightness (0.0 – 1.0). Call show() to apply."""
         self.brightness = max(0.0, min(1.0, level))
+
+    # ----- convenience patterns -----------------------------------------------
 
     def fill_color(self, rgbw_tuple):
         """Fill the entire strip with an RGBW tuple and show immediately."""
@@ -164,14 +105,14 @@ class LEDStrip:
             self.set_all(*rgbw_tuple)
             self.show()
 
-    def close(self):
-        self._spi.close()
 
-
+# ---------------------------------------------------------------------------
+# Quick self-test
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import time
 
-    NUM_LEDS = 4
+    NUM_LEDS = 12  # adjust to match your string length
 
     print(f"Initialising {NUM_LEDS} RGBW LEDs on SPI1 ...")
     strip = LEDStrip(num_leds=NUM_LEDS)
