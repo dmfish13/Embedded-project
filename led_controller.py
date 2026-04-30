@@ -14,11 +14,15 @@ Protocol (400 kHz, return-to-zero):
     Color order: W, R, G, B
     Frame: C1 + C2 + D1 + D2 + ... + Dn
 
-SPI encoding at 1.6 MHz (~625 ns/SPI-bit), 4 SPI bits per data bit:
-    Logic 1 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)
-    Logic 0 -> 0b0111  (LOW 625 ns,  HIGH 1875 ns)
+SPI encoding at 2.0 MHz (500 ns/SPI-bit), 4 SPI bits per data bit:
+    Logic 1 -> 0b0001  (LOW 1500 ns, HIGH 500 ns)
+    Logic 0 -> 0b0111  (LOW 500 ns,  HIGH 1500 ns)
 
 8 data bits x 4 SPI bits = 32 SPI bits = 4 SPI bytes per colour byte.
+
+Note: 1.6 MHz (exact 400 kHz data rate) fails on the Pi 5 due to
+SPI inter-byte gaps. 2.0 MHz hits a clean clock divider and
+produces gap-free DMA transfers.
 
 Hardware notes
 --------------
@@ -40,16 +44,16 @@ Usage example:
 
 import spidev
 
-SPI_SPEED_HZ = 1_600_000
-DEFAULT_CURRENT = 10
+SPI_SPEED_HZ = 2_000_000
+DEFAULT_CURRENT = 30
 
 
 def _encode_byte(value):
     """Encode one byte into 4 SPI bytes for TM1815B protocol.
 
-    At 1.6 MHz (625 ns/SPI-bit), 4 SPI bits per data bit:
-        Logic 1 -> 0b0001  (LOW 1875 ns, HIGH 625 ns)  T1l: 1300-2000 ns
-        Logic 0 -> 0b0111  (LOW 625 ns,  HIGH 1875 ns) T0l: 620-820 ns
+    At 2.0 MHz (500 ns/SPI-bit), 4 SPI bits per data bit:
+        Logic 1 -> 0b0001  (LOW 1500 ns, HIGH 500 ns)
+        Logic 0 -> 0b0111  (LOW 500 ns,  HIGH 1500 ns)
     """
     encoded = 0
     for bit_pos in range(7, -1, -1):
@@ -131,7 +135,9 @@ class LEDStrip:
 
         buf += b'\xFF' * 60
 
-        self._spi.xfer2(list(buf))
+        data = list(buf)
+        for _ in range(3):
+            self._spi.xfer2(data)
 
     def set_brightness(self, level):
         self.brightness = max(0.0, min(1.0, level))

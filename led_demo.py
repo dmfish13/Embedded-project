@@ -21,8 +21,8 @@ import random
 import math
 from spidev import SpiDev
 
-SPI_SPEED_HZ = 1_600_000
-DEFAULT_CURRENT = 10
+SPI_SPEED_HZ = 2_000_000
+DEFAULT_CURRENT = 30
 
 
 def _encode_byte(value):
