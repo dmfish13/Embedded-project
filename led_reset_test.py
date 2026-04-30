@@ -204,9 +204,8 @@ def build_protocol_frame(pixels, current=30, spi_speed=1_600_000):
     # Large reset padding to force DMA and exceed 200 µs minimum
     # At 1.6 MHz: 2000 bytes = 10 ms HIGH (50x the 200 µs minimum)
     # At 2.0 MHz: 2000 bytes = 8 ms HIGH (40x the 200 µs minimum)
-    preamble = b'\xFF' * 2000
+    preamble = b'\xFF' * 500
 
-    # Encode C1, C2, and pixel data
     data = bytearray()
     for bv in c1:
         data += LUT[bv]
@@ -215,8 +214,7 @@ def build_protocol_frame(pixels, current=30, spi_speed=1_600_000):
     for w, r, g, b in pixels:
         data += LUT[w] + LUT[r] + LUT[g] + LUT[b]
 
-    # Trailing reset — latch period
-    trailing = b'\xFF' * 2000
+    trailing = b'\xFF' * 500
 
     return bytearray(preamble) + data + bytearray(trailing)
 
@@ -334,3 +332,5 @@ if __name__ == "__main__":
             main()
     except KeyboardInterrupt:
         print("\n  Interrupted.")
+    finally:
+        subprocess.run(["pinctrl", "set", "20", "op", "dl"], capture_output=True)

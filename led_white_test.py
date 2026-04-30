@@ -215,8 +215,14 @@ def main():
     print("    5. Do the parallel LEDs behave the same as series LED1?")
 
 
+def cleanup():
+    subprocess.run(["pinctrl", "set", "20", "op", "dl"], capture_output=True)
+
+
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
         print("\n  Interrupted.")
+    finally:
+        cleanup()

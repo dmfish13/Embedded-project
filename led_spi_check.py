@@ -28,4 +28,5 @@ while time.monotonic() - start < 5:
     spi.xfer2([0xFF] * 256)
 
 spi.close()
+subprocess.run(["pinctrl", "set", "20", "op", "dl"], capture_output=True)
 print("Done. Did the cycling stop?")

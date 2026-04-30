@@ -196,4 +196,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
+    finally:
+        subprocess.run(["pinctrl", "set", "20", "op", "dl"], capture_output=True)

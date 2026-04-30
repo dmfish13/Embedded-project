@@ -162,6 +162,8 @@ class LEDStrip:
 
     def close(self):
         self._spi.close()
+        subprocess.run(["pinctrl", "set", "20", "op", "dl"],
+                       capture_output=True)
 
 
 if __name__ == "__main__":
@@ -187,7 +189,9 @@ if __name__ == "__main__":
 
         print("  All off.")
         strip.clear()
-
     except KeyboardInterrupt:
         strip.clear()
         print("\nInterrupted — LEDs off.")
+    finally:
+        strip.close()
+        print("  SPI closed, GPIO 20 LOW.")
