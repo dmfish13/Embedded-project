@@ -2,22 +2,27 @@
 """
 LED SPI1 Reset Tool
 
-Sends a long reset pulse followed by valid all-off frames to force
-every TM1815B in the chain out of demo mode and into a known state.
-Leaves GPIO 20 in SPI1 MOSI mode (idle HIGH) so subsequent LED
-scripts can open SPI and send data immediately.
+Fully resets the SPI1 peripheral and the TM1815B LED chain.
+Unbinds and rebinds the spidev driver to clear any stale kernel state,
+restores GPIO 20 to SPI1 MOSI, then sends all-off frames to the LEDs.
+
+Requires sudo (for driver unbind/rebind).
 
 Usage:
-    python3 led_spi_reset.py
+    sudo python3 led_spi_reset.py
 """
 
+import glob
+import os
 import subprocess
 import time
-from spidev import SpiDev
+from pathlib import Path
 
 NUM_LEDS = 8
 SPI_SPEED = 2_000_000
 PIN = 20
+
+SPIDEV_DRIVER = Path("/sys/bus/spi/drivers/spidev")
 
 
 def encode_byte(value):
@@ -37,7 +42,6 @@ LUT = [encode_byte(v) for v in range(256)]
 
 
 def build_data_payload():
-    """Build just the C1 + C2 + pixel data portion (no reset padding)."""
     c1 = bytes([0x1E, 0x1E, 0x1E, 0x1E])
     c2 = bytes([v ^ 0xFF for v in c1])
 
@@ -51,34 +55,86 @@ def build_data_payload():
     return list(buf)
 
 
-# Step 1: Restore GPIO 20 to SPI1 MOSI alt function
-print("Restoring GPIO 20 to SPI1 MOSI (alt5)...")
-subprocess.run(["pinctrl", "set", str(PIN), "a5"], capture_output=True)
-time.sleep(0.1)
+def find_spi1_device():
+    """Find the sysfs device name for SPI1.0 (e.g. 'spi1.0')."""
+    for path in SPIDEV_DRIVER.glob("spi*"):
+        if path.name.startswith("spi1."):
+            return path.name
+    # Try looking in /sys/bus/spi/devices/ instead
+    devices = Path("/sys/bus/spi/devices")
+    for path in devices.glob("spi1.*"):
+        return path.name
+    return None
 
-spi = SpiDev()
-spi.open(1, 0)
-spi.max_speed_hz = SPI_SPEED
-spi.mode = 0b00
-spi.lsbfirst = False
 
-# Step 2: Hold line HIGH for 500ms to force all chips into reset
-print("Sending sustained reset (500 ms HIGH)...")
-end = time.monotonic() + 0.5
-while time.monotonic() < end:
-    spi.xfer2([0xFF] * 500)
+def reset_spi_driver():
+    """Unbind and rebind the spidev driver for SPI1 to clear kernel state."""
+    dev_name = find_spi1_device()
 
-# Step 3: Send complete all-off frames to put chips in known state
-# Split into preamble / data / trailing to stay under spidev buffer limit
-print("Sending all-off frames...")
-preamble = [0xFF] * 80
-data = build_data_payload()
-trailing = [0xFF] * 80
-for i in range(20):
-    spi.xfer2(preamble)
-    spi.xfer2(data)
-    spi.xfer2(trailing)
+    if dev_name:
+        print(f"  Unbinding {dev_name} from spidev driver...")
+        unbind = SPIDEV_DRIVER / "unbind"
+        try:
+            unbind.write_text(dev_name)
+        except OSError as e:
+            print(f"  Unbind note: {e}")
+        time.sleep(0.2)
 
-spi.close()
+        print(f"  Rebinding {dev_name} to spidev driver...")
+        bind = SPIDEV_DRIVER / "bind"
+        try:
+            bind.write_text(dev_name)
+        except OSError as e:
+            print(f"  Rebind note: {e}")
+        time.sleep(0.2)
+    else:
+        print("  SPI1 device not found in sysfs, trying dtoverlay reload...")
+        subprocess.run(["sudo", "dtoverlay", "-r", "spi1-1cs"],
+                       capture_output=True)
+        time.sleep(0.5)
+        subprocess.run(["sudo", "dtoverlay", "spi1-1cs"],
+                       capture_output=True)
+        time.sleep(0.5)
 
-print("Reset complete. LEDs off, SPI1 ready for new commands.")
+    # Verify /dev/spidev1.0 exists
+    if os.path.exists("/dev/spidev1.0"):
+        print("  /dev/spidev1.0 OK")
+    else:
+        print("  WARNING: /dev/spidev1.0 not found!")
+
+
+def main():
+    print("Step 1: Resetting SPI1 driver...")
+    reset_spi_driver()
+
+    print("Step 2: Restoring GPIO 20 to SPI1 MOSI (alt5)...")
+    subprocess.run(["pinctrl", "set", str(PIN), "a5"], capture_output=True)
+    time.sleep(0.1)
+
+    from spidev import SpiDev
+    spi = SpiDev()
+    spi.open(1, 0)
+    spi.max_speed_hz = SPI_SPEED
+    spi.mode = 0b00
+    spi.lsbfirst = False
+
+    print("Step 3: Sending sustained reset (500 ms HIGH)...")
+    end = time.monotonic() + 0.5
+    while time.monotonic() < end:
+        spi.xfer2([0xFF] * 500)
+
+    print("Step 4: Sending all-off frames...")
+    preamble = [0xFF] * 80
+    data = build_data_payload()
+    trailing = [0xFF] * 80
+    for _ in range(20):
+        spi.xfer2(preamble)
+        spi.xfer2(data)
+        spi.xfer2(trailing)
+
+    spi.close()
+    print("Reset complete. LEDs off, SPI1 ready for new commands.")
+
+
+if __name__ == "__main__":
+    main()
