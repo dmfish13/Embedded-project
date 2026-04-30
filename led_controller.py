@@ -42,10 +42,7 @@ Usage example:
     strip.clear()
 """
 
-import subprocess
 import spidev
-
-subprocess.run(["pinctrl", "set", "20", "a5"], capture_output=True)
 
 SPI_SPEED_HZ = 2_000_000
 DEFAULT_CURRENT = 30
@@ -88,41 +85,33 @@ def _build_c1c2(current_w, current_r, current_g, current_b):
 
 
 class LEDStrip:
+    """High-level driver for TM1815B RGBW LEDs over SPI1."""
 
     def __init__(self, num_leds, spi_bus=1, brightness=1.0,
                  current=DEFAULT_CURRENT):
         self.num_leds = num_leds
         self.brightness = max(0.0, min(1.0, brightness))
-        self._pixels = [(0, 0, 0, 0)] * num_leds
-        self._c1, self._c2 = _build_c1c2(current, current, current, current)
 
         self._spi = spidev.SpiDev()
         self._spi.open(spi_bus, 0)
         self._spi.max_speed_hz = SPI_SPEED_HZ
         self._spi.mode = 0b00
-        self._spi.lsbfirst = False
+
+        self._c1, self._c2 = _build_c1c2(current, current, current, current)
+        self._pixels = [(0, 0, 0, 0)] * num_leds
 
     def set_pixel(self, index, r, g, b, w=0):
-        """Set a single pixel to the given RGBW colour.
-
-        Args:
-            index: Pixel position (0-based).
-            r, g, b, w: Colour channel values (0-255).
-        """
         if 0 <= index < self.num_leds:
             self._pixels[index] = (r, g, b, w)
 
     def set_all(self, r, g, b, w=0):
-        """Set every pixel to the same RGBW colour."""
         self._pixels = [(r, g, b, w)] * self.num_leds
 
     def set_pixel_tuple(self, index, rgbw):
-        """Set a single pixel from an (R, G, B, W) tuple."""
         if rgbw and len(rgbw) == 4:
             self.set_pixel(index, *rgbw)
 
     def clear(self):
-        """Turn off all LEDs (sets every channel to 0) and push to strip."""
         self.set_all(0, 0, 0, 0)
         self.show()
 
@@ -151,19 +140,15 @@ class LEDStrip:
             self._spi.xfer2(data)
 
     def set_brightness(self, level):
-        """Set global brightness (0.0 – 1.0). Call show() to apply."""
         self.brightness = max(0.0, min(1.0, level))
 
     def fill_color(self, rgbw_tuple):
-        """Fill the entire strip with an RGBW tuple and show immediately."""
         if rgbw_tuple and len(rgbw_tuple) == 4:
             self.set_all(*rgbw_tuple)
             self.show()
 
     def close(self):
         self._spi.close()
-        subprocess.run(["pinctrl", "set", "20", "op", "dl"],
-                       capture_output=True)
 
 
 if __name__ == "__main__":
@@ -171,7 +156,7 @@ if __name__ == "__main__":
 
     NUM_LEDS = 4
 
-    print(f"Initialising {NUM_LEDS} RGBW LEDs on SPI1 ...")
+    print(f"Initialising {NUM_LEDS} TM1815B RGBW LEDs on SPI1 ...")
     strip = LEDStrip(num_leds=NUM_LEDS)
 
     colours = [
@@ -189,9 +174,9 @@ if __name__ == "__main__":
 
         print("  All off.")
         strip.clear()
+
     except KeyboardInterrupt:
         strip.clear()
         print("\nInterrupted — LEDs off.")
     finally:
         strip.close()
-        print("  SPI closed, GPIO 20 LOW.")
