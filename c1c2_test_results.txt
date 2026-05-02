@@ -1,0 +1,151 @@
+C1/C2 Test Results — led_c1c2_test.py
+======================================
+Setup: Pi → SN74AHCT125N → PCB1 → PCB2 → PCB3 → PCB4
+SPI speed: 2.0 MHz, 10kΩ pull-up on GPIO 20
+
+For each test, record what you see on PCB1 and PCBs 2-4.
+Note: "cycling" = demo mode color preset cycle.
+
+
+=== SECTION 1: Valid C1/C2, varying current (all RED pixels) ===
+
+All tests send RED pixels (R=255) to all 4 PCBs.
+C2 is correctly set to bitwise NOT of C1.
+Purpose: does changing the 6-bit current value in C1 affect brightness?
+
+Test 1: Current = 30 (0x1E)
+  C1: [0x1E, 0x1E, 0x1E, 0x1E]  C2: [0xE1, 0xE1, 0xE1, 0xE1]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 2: Current = 0 (minimum, 6.5mA per datasheet)
+  C1: [0x00, 0x00, 0x00, 0x00]  C2: [0xFF, 0xFF, 0xFF, 0xFF]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 3: Current = 63 (0x3F, maximum 38mA)
+  C1: [0x3F, 0x3F, 0x3F, 0x3F]  C2: [0xC0, 0xC0, 0xC0, 0xC0]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 4: Current = 1 (0x01)
+  C1: [0x01, 0x01, 0x01, 0x01]  C2: [0xFE, 0xFE, 0xFE, 0xFE]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 2: Per-channel current (all PWM=255) ===
+
+All pixel channels at PWM=255 (full brightness).
+Only ONE C1 channel gets current=63, the rest get current=0.
+Purpose: does per-channel C1 current make one color brighter than others?
+Even at current=0, the minimum is 6.5mA, so all LEDs should still be on.
+
+Test 5: W current=63, R/G/B current=0
+  C1: [0x3F, 0x00, 0x00, 0x00]  C2: [0xC0, 0xFF, 0xFF, 0xFF]
+  D1-D4: W=255 R=255 G=255 B=255
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 6: R current=63, W/G/B current=0
+  C1: [0x00, 0x3F, 0x00, 0x00]  C2: [0xFF, 0xC0, 0xFF, 0xFF]
+  D1-D4: W=255 R=255 G=255 B=255
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 7: G current=63, W/R/B current=0
+  C1: [0x00, 0x00, 0x3F, 0x00]  C2: [0xFF, 0xFF, 0xC0, 0xFF]
+  D1-D4: W=255 R=255 G=255 B=255
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 8: B current=63, W/R/G current=0
+  C1: [0x00, 0x00, 0x00, 0x3F]  C2: [0xFF, 0xFF, 0xFF, 0xC0]
+  D1-D4: W=255 R=255 G=255 B=255
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 3: Invalid C2 (C2 != ~C1) ===
+
+Datasheet says: "If C2 != ~C1, the chip will not decode the data correctly."
+Purpose: test what actually happens when C2 is wrong.
+
+Test 9: C2 = same as C1 (not inverted)
+  C1: [0x1E, 0x1E, 0x1E, 0x1E]  C2: [0x1E, 0x1E, 0x1E, 0x1E]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 10: C2 = all zeros
+  C1: [0x1E, 0x1E, 0x1E, 0x1E]  C2: [0x00, 0x00, 0x00, 0x00]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 11: C2 = all 0xFF
+  C1: [0x1E, 0x1E, 0x1E, 0x1E]  C2: [0xFF, 0xFF, 0xFF, 0xFF]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 4: No C1/C2 (pixel data only) ===
+
+C1 and C2 are completely omitted from the frame.
+Frame is just: [preamble 0xFF] [D1 D2 D3 D4] [trailing 0xFF]
+Purpose: does the chip require C1/C2, or does it work with raw pixel data?
+
+Test 12: No C1/C2, RED pixels
+  C1: OMITTED  C2: OMITTED
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 5: White LED current sweep ===
+
+Only W channel has PWM=255, R/G/B=0.
+Varying W current in C1 to see if it affects white LED brightness.
+Purpose: can we control white LED brightness through C1 current?
+
+Test 13: W current=63 (max)
+  C1: [0x3F, 0x00, 0x00, 0x00]  C2: [0xC0, 0xFF, 0xFF, 0xFF]
+  D1-D4: W=255 R=0 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 14: W current=10
+  C1: [0x0A, 0x00, 0x00, 0x00]  C2: [0xF5, 0xFF, 0xFF, 0xFF]
+  D1-D4: W=255 R=0 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 15: W current=0 (minimum 6.5mA)
+  C1: [0x00, 0x00, 0x00, 0x00]  C2: [0xFF, 0xFF, 0xFF, 0xFF]
+  D1-D4: W=255 R=0 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 6: All off ===
+
+Test 16: Current=0, PWM=0
+  C1: [0x00, 0x00, 0x00, 0x00]  C2: [0xFF, 0xFF, 0xFF, 0xFF]
+  D1-D4: W=0 R=0 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SUMMARY ===
+
+Does C1 current level affect brightness?
+Does per-channel C1 current make a visible difference?
+Does invalid C2 prevent the chip from working?
+Does omitting C1/C2 still work?
+Does C1 W current affect white LED brightness?
+Any difference in PCBs 2-4 behavior across tests?
