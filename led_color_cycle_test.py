@@ -2,72 +2,66 @@
 """
 PCB1 color cycle test — 16 colors from button_map.py.
 
-Uses the same frame format as test 12 (the only test that doesn't
-freeze the LEDs): C1=[0x00,0x00,0x00,0x00], C2=[0xFF,0xFF,0xFF,0xFF],
-4 pixels per frame, 16-bit encoding at 4.0 MHz.
+Uses the same format as led_c1c2_test.py Section 5 baseline:
+  4-bit encoding @ 2.0 MHz, C1=[0x1E,0x1E,0x1E,0x1E], 4 pixels.
 
 Colors from button_map.py are RGBW tuples (R,G,B,W).
 TM1815B frame order is WRGB, so we reorder before sending.
+
+Usage:
+    python3 led_color_cycle_test.py
 """
 
-import math
 import sys
 import threading
 from spidev import SpiDev
 
-RESET_TARGET_US = 250
-SPI_SPEED = 4_000_000
-
 NUM_LEDS = 4
-C1 = [0x00, 0x00, 0x00, 0x00]
-C2 = [0xFF, 0xFF, 0xFF, 0xFF]
 
 
-def reset_bytes_for_speed(spi_speed):
-    return max(math.ceil(RESET_TARGET_US * spi_speed / 8_000_000), 50)
-
-
-def encode_byte_16bit(value):
-    result = bytearray(16)
-    for i in range(8):
-        bit_pos = 7 - i
-        idx = i * 2
+def encode_byte_4bit(value):
+    encoded = 0
+    for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
-            result[idx] = 0x03
+            encoded = (encoded << 4) | 0b0001
         else:
-            result[idx] = 0x1F
-        result[idx + 1] = 0xFF
-    return bytes(result)
+            encoded = (encoded << 4) | 0b0111
+    return bytes([
+        (encoded >> 24) & 0xFF, (encoded >> 16) & 0xFF,
+        (encoded >> 8) & 0xFF, encoded & 0xFF,
+    ])
 
 
-LUT = [encode_byte_16bit(v) for v in range(256)]
+LUT_4BIT = [encode_byte_4bit(v) for v in range(256)]
 
 
-def build_frame(pixels):
-    """Frame: [Reset][C1][C2][D1][D2][D3][D4][Reset] — same as test 12."""
-    reset = reset_bytes_for_speed(SPI_SPEED)
-    buf = bytearray(b'\xFF' * reset)
-    for bv in C1:
-        buf += LUT[bv]
-    for bv in C2:
-        buf += LUT[bv]
-    for pixel in pixels:
-        for ch in pixel:
-            buf += LUT[ch]
-    buf += b'\xFF' * reset
+def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
+    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]"""
+    buf = bytearray(b'\xFF' * reset_bytes)
+    for bv in c1_bytes:
+        buf += lut[bv]
+    for bv in c2_bytes:
+        buf += lut[bv]
+    for w, r, g, b in pixels:
+        buf += lut[w] + lut[r] + lut[g] + lut[b]
+    buf += b'\xFF' * reset_bytes
     return buf
 
 
-def run_test(buf_list):
+def run_test(buf_list, spi_speed):
+    """Send continuously at given speed until Enter is pressed."""
     spi = SpiDev()
     spi.open(1, 0)
-    spi.max_speed_hz = SPI_SPEED
-    spi.mode = 0
+    spi.max_speed_hz = spi_speed
+    actual = spi.max_speed_hz
+    spi.mode = 0b00
     spi.lsbfirst = False
 
     frame_count = 0
     running = True
 
+    print(f"         Requested {spi_speed/1e6:.1f} MHz, "
+          f"actual {actual/1e6:.3f} MHz")
     print("         Sending... Press Enter to stop.")
     sys.stdout.flush()
 
@@ -87,10 +81,26 @@ def run_test(buf_list):
     return frame_count
 
 
+def fmt_c(c_bytes):
+    return f"[0x{c_bytes[0]:02X}, 0x{c_bytes[1]:02X}, 0x{c_bytes[2]:02X}, 0x{c_bytes[3]:02X}]"
+
+
+def fmt_d(pixel):
+    return f"W={pixel[0]:>3} R={pixel[1]:>3} G={pixel[2]:>3} B={pixel[3]:>3}"
+
+
+def print_test_info(c1, c2, pixels):
+    """Print C1, C2, and each D(n) on separate lines."""
+    for i, px in enumerate(pixels, 1):
+        print(f"         C1={fmt_c(c1)}  C2={fmt_c(c2)}  "
+              f"D{i}: {fmt_d(px)}")
+
+
 def rgbw_to_wrgb(r, g, b, w):
     return (w, r, g, b)
 
 
+# 16 colors from button_map.py — (name, RGBW tuple)
 COLORS = [
     ("Deep Red",    (180, 0,   0,   0)),
     ("Mint",        (0,   200, 120, 0)),
@@ -110,39 +120,66 @@ COLORS = [
     ("White",       (0,   0,   0,   255)),
 ]
 
+# Build TESTS list — same format as led_c1c2_test.py Section 5 baseline
+TESTS = []
+for name, rgbw in COLORS:
+    r, g, b, w = rgbw
+    wrgb = rgbw_to_wrgb(r, g, b, w)
+    TESTS.append({
+        "name": f"4-bit 2.0 MHz — {name} (R={r} G={g} B={b} W={w})",
+        "speed": 2_000_000,
+        "encoding": "4bit",
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": [wrgb] * NUM_LEDS,
+    })
+
 
 def main():
-    print("=" * 60)
+    print("=" * 68)
     print("  PCB1 Color Cycle — 16 colors from button_map.py")
-    print("  4 pixels per frame, 16-bit @ 4.0 MHz")
-    print("  C1=[0x00,0x00,0x00,0x00] C2=[0xFF,0xFF,0xFF,0xFF]")
-    print("  (Same format as test 12 which doesn't freeze)")
+    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
+    print("  Format: 4-bit encoding @ 2.0 MHz (same as Section 5 baseline)")
+    print("  C1=[0x1E, 0x1E, 0x1E, 0x1E]  C2=[0xE1, 0xE1, 0xE1, 0xE1]")
     print("  All 4 PCBs get the same color each test.")
-    print("  Does PCB1 change color for each test?")
     print()
-    print("  Press Enter to advance through each color.")
-    print("=" * 60)
+    print("  Does PCB1 change color for each test?")
+    print("  Press Enter to START each test, Enter again to STOP.")
+    print("=" * 68)
 
-    for i, (name, rgbw) in enumerate(COLORS, 1):
-        r, g, b, w = rgbw
-        wrgb = rgbw_to_wrgb(r, g, b, w)
-        pixels = [wrgb] * NUM_LEDS
+    for i, test in enumerate(TESTS, 1):
+        c1 = test["c1"]
+        c2 = test["c2"]
+        pixels = test["pixels"]
+        speed = test["speed"]
+        reset = test.get("reset", 80)
 
-        print(f"\n  [{i:>2}/16] {name}")
-        print(f"         RGBW: R={r:>3} G={g:>3} B={b:>3} W={w:>3}")
-        print(f"         Frame WRGB: W={wrgb[0]:>3} R={wrgb[1]:>3} "
-              f"G={wrgb[2]:>3} B={wrgb[3]:>3}")
-        print(f"         C1={C1}  C2={C2}  Pixels: 4x same")
+        for j in range(4):
+            if c2[j] != (c1[j] ^ 0xFF):
+                print(f"  *** ERROR: C2[{j}]=0x{c2[j]:02X} is NOT "
+                      f"~C1[{j}]=0x{c1[j]:02X} "
+                      f"(expected 0x{c1[j] ^ 0xFF:02X}) ***")
+                sys.exit(1)
 
-        frame = build_frame(pixels)
+        t0_ns = int(1e9 / speed * 1)
+        t1_ns = int(1e9 / speed * 3)
+
+        print(f"\n  [{i:>2}/{len(TESTS)}] {test['name']}")
+        print(f"         Encoding: 4-bit | SPI: {speed/1e6:.1f} MHz | "
+              f"0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
+        frame_bytes = len(build_frame(c1, c2, pixels, LUT_4BIT, reset))
+        print(f"         Frame: {frame_bytes} bytes | "
+              f"C2 == ~C1: verified")
+        print_test_info(c1, c2, pixels)
+
         input("         Press Enter to start...")
-        frames = run_test(list(frame))
-        print(f"         Sent {frames} frames. What color did PCB1 show?")
 
-    print("\n  Done. Did PCB1 change color for each test?")
-    print("  If yes: chip responds to different data correctly.")
-    print("  If no (stuck on one color): chip not accepting new frames.")
+        buf = build_frame(c1, c2, pixels, LUT_4BIT, reset_bytes=reset)
+        frames = run_test(list(buf), speed)
+        print(f"         Sent {frames} frames")
+
+    print("\n  Done. Did PCB1 change color for each of the 16 tests?")
 
 
 if __name__ == "__main__":
