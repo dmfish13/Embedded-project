@@ -169,24 +169,16 @@ def main():
     print(f"  Active: Off")
     print(f"  Press a key to select a color...\n")
 
-    used_keys = {'p'}
-
     try:
         while True:
             ch = getch()
             if ch == '\x03':
                 break
-            if ch not in valid_keys or ch == current_key:
-                continue
-            if ch in used_keys:
-                print(f"  ✗ {key_to_name[ch]} already used")
-                continue
-            with lock:
-                current_buf = bufs[ch]
-            current_key = ch
-            used_keys.add(ch)
-            remaining = len(valid_keys) - len(used_keys)
-            print(f"  → {key_to_name[ch]}  ({remaining} remaining)")
+            if ch in valid_keys:
+                with lock:
+                    current_buf = bufs[ch]
+                current_key = ch
+                print(f"  → {key_to_name[ch]}")
     finally:
         running = False
         spi_thread.join(timeout=1)
