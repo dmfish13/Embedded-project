@@ -1,36 +1,30 @@
 #!/usr/bin/env python3
 """
-C1/C2 forwarding test — 10-bit encoding at 4.0 MHz for in-spec timing.
+C1/C2 forwarding test — 16-bit encoding at 4.0 MHz for gapless timing.
 
-Previous findings:
-  - Pi 5 SPI only works cleanly at 2.0 MHz and 4.0 MHz
-  - 4-bit @ 2.0 MHz: PCB1 works, forwarding fails (0 LOW=500ns < 620ns)
-  - 8-bit @ 4.0 MHz: PCB1 works, forwarding fails (0 LOW=500ns < 620ns)
-  - All other SPI speeds: nothing works (Pi 5 SPI controller issue)
+The Pi's hardware SPI inserts micro-delays between bytes. 10-bit encoding 
+failed because byte boundaries (every 8 bits) fell in the middle of the 
+data LOW pulses, stretching them out of spec. 
 
-New approach — 10-bit encoding at 4.0 MHz:
-  Logic 0: 3 LOW + 7 HIGH → 0 LOW = 3 × 250ns = 750ns  (in 620-820ns)
-  Logic 1: 6 LOW + 4 HIGH → 1 LOW = 6 × 250ns = 1500ns (in 1300-2000ns)
-  Bit period = 10 × 250ns = 2500ns (exactly 400 KHz)
-
-  10 bits × 8 data bits = 80 SPI bits = 10 SPI bytes per data byte.
-  Frame size: 80 + 10×4 + 10×4 + 10×4×4 + 80 = 400 bytes (within limit).
-
-Setup: Pi → SN74AHCT125N → PCB1 → PCB2 → PCB3 → PCB4
-       (10kΩ pull-up on GPIO 20 to 3.3V)
-
-Usage:
-    python3 led_c1c2_test.py
+16-bit encoding perfectly aligns SPI bytes to data bits, guaranteeing
+the line is always HIGH during an inter-byte gap.
 """
 
+import math
 import sys
-import time
 import threading
 from spidev import SpiDev
 
 NUM_LEDS = 4
+RESET_TARGET_US = 250
 
-# === 4-bit encoding (baseline, works at 2.0 MHz for PCB1 only) ===
+def reset_bytes_for_speed(spi_speed):
+    """Calculate minimum 0xFF bytes needed for >= RESET_TARGET_US reset."""
+    bytes_needed = math.ceil(RESET_TARGET_US * spi_speed / 8_000_000)
+    return max(bytes_needed, 50)
+
+
+# === 4-bit encoding (baseline, PCB1 only) ===
 def encode_byte_4bit(value):
     encoded = 0
     for bit_pos in range(7, -1, -1):
@@ -45,35 +39,35 @@ def encode_byte_4bit(value):
 
 LUT_4BIT = [encode_byte_4bit(v) for v in range(256)]
 
-# === 10-bit encoding (3 LOW for 0, 6 LOW for 1, at 4.0 MHz) ===
-def encode_byte_10bit(value):
-    """Encode one data byte (8 bits) into 80 SPI bits (10 bytes).
 
-    Each data bit becomes 10 SPI bits:
-      Logic 0: 0001111111 → 3 LOW + 7 HIGH (MSB first on wire)
-      Logic 1: 0000001111 → 6 LOW + 4 HIGH
-
-    At 4.0 MHz: 0 LOW = 750ns, 1 LOW = 1500ns, period = 2500ns.
+# === 16-bit encoding (The Pi SPI Gap Bypass) ===
+def encode_byte_16bit(value):
+    """Encode one data byte (8 bits) into 16 SPI bytes.
+    
+    16 SPI bits per data bit. At 4.0 MHz, 1 SPI bit = 250ns.
+    Period = 16 * 250 = 4.0 us (Inside 2.5 - 5.0 us spec).
+    
+    Logic 0: 3 LOW + 13 HIGH = 750ns LOW -> 0x1F, 0xFF
+    Logic 1: 6 LOW + 10 HIGH = 1500ns LOW -> 0x03, 0xFF
     """
-    bits = 0
-    for bit_pos in range(7, -1, -1):
-        bits <<= 10
-        if value & (1 << bit_pos):
-            bits |= 0b0000001111
+    result = bytearray(16)
+    for i in range(8):
+        # MSB first
+        if value & (1 << (7 - i)):
+            # Logic 1: 6 LOWs
+            result[i*2] = 0x03
+            result[i*2+1] = 0xFF
         else:
-            bits |= 0b0001111111
-    result = bytearray(10)
-    for i in range(10):
-        result[9 - i] = bits & 0xFF
-        bits >>= 8
+            # Logic 0: 3 LOWs
+            result[i*2] = 0x1F
+            result[i*2+1] = 0xFF
     return bytes(result)
 
-LUT_10BIT = [encode_byte_10bit(v) for v in range(256)]
+LUT_16BIT = [encode_byte_16bit(v) for v in range(256)]
 
-def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=150):
-    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]
-    FIXED: Default reset_bytes bumped from 80 to 150 to guarantee 300us HIGH @ 4.0 MHz
-    """
+
+def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes):
+    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]"""
     buf = bytearray(b'\xFF' * reset_bytes)
     for bv in c1_bytes:
         buf += lut[bv]
@@ -84,103 +78,174 @@ def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=150):
     buf += b'\xFF' * reset_bytes
     return buf
 
-def run_test(buf_list, spi_speed):
-    """Send continuously at given speed until Enter is pressed."""
+def run_test(buf_list, spi_speed, spi_mode=0):
+    """Send continuously at given speed/mode until Enter is pressed."""
     spi = SpiDev()
     spi.open(1, 0)
     spi.max_speed_hz = spi_speed
     actual = spi.max_speed_hz
-    
-    # FIXED: Change SPI mode from 0b00 to 0b11. 
-    # This idles the SPI hardware high instead of low, preventing protocol lockup.
-    spi.mode = 0b11 
+    spi.mode = spi_mode
     spi.lsbfirst = False
-    
+
     frame_count = 0
     running = True
-    
-    print(f"         Requested {spi_speed/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
-    print("         Transmitting... (Press Enter to stop)")
 
-    def send_loop():
-        nonlocal frame_count
-        while running:
-            spi.xfer2(buf_list)
-            frame_count += 1
-            # Very small sleep so we aren't completely slamming the CPU
-            time.sleep(0.005) 
-            
-    t = threading.Thread(target=send_loop)
+    print(f"         Requested {spi_speed/1e6:.1f} MHz, "
+          f"actual {actual/1e6:.3f} MHz, "
+          f"SPI mode {spi_mode}")
+    print("         Sending... Press Enter to stop.")
+    sys.stdout.flush()
+
+    def wait():
+        nonlocal running
+        input()
+        running = False
+
+    t = threading.Thread(target=wait, daemon=True)
     t.start()
-    input()
-    running = False
-    t.join()
+
+    while running:
+        spi.xfer2(buf_list)
+        frame_count += 1
+
     spi.close()
     return frame_count
 
-def print_test_info(c1, c2, pixels):
-    # Dummy implementation for script completeness
-    print(f"         C1 payload: {[hex(c) for c in c1]}")
+def fmt_c(c_bytes):
+    return f"[0x{c_bytes[0]:02X}, 0x{c_bytes[1]:02X}, 0x{c_bytes[2]:02X}, 0x{c_bytes[3]:02X}]"
 
-if __name__ == "__main__":
-    
-    # !!! INSERT YOUR 12 TESTS HERE !!!
-    TESTS = [
-        {
-            "name": "Test 1: Red 10-bit @ 4.0 MHz (Corrected)",
-            "encoding": "10bit",
-            "speed": 4000000,
-            "c1": [0x3F, 0x00, 0x00, 0x00],
-            "pixels": [(0, 255, 0, 0)] * NUM_LEDS,
-            "reset": 150  # Ensure the reset value matches the new minimum
-        }
-    ]
+def fmt_d(pixel):
+    return f"W={pixel[0]:>3} R={pixel[1]:>3} G={pixel[2]:>3} B={pixel[3]:>3}"
+
+def print_test_info(c1, c2, pixels):
+    for i, px in enumerate(pixels, 1):
+        print(f"         C1={fmt_c(c1)}  C2={fmt_c(c2)}  "
+              f"D{i}: {fmt_d(px)}")
+
+UNIQUE = [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)]
+
+TESTS = [
+    # =================================================================
+    # SECTION 1: 16-bit @ 4.0 MHz, SPI Mode 0 
+    # =================================================================
+    {
+        "section": "\n  === SECTION 1: 16-bit @ 4.0 MHz, Mode 0 ===",
+        "name": "16-bit 4.0 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
+        "speed": 4_000_000,
+        "encoding": "16bit",
+        "spi_mode": 0,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": UNIQUE,
+    },
+    {
+        "name": "16-bit 4.0 MHz — All RED",
+        "speed": 4_000_000,
+        "encoding": "16bit",
+        "spi_mode": 0,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": [(0, 255, 0, 0)] * NUM_LEDS,
+    },
+    # =================================================================
+    # SECTION 2: 16-bit @ 4.0 MHz, SPI Mode 3 
+    # =================================================================
+    {
+        "section": "\n  === SECTION 2: 16-bit @ 4.0 MHz, Mode 3 (idle HIGH) ===",
+        "name": "Mode 3 — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
+        "speed": 4_000_000,
+        "encoding": "16bit",
+        "spi_mode": 3,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": UNIQUE,
+    },
+    # =================================================================
+    # SECTION 3: Individual PCB addressing @ 4.0 MHz 16-bit
+    # =================================================================
+    {
+        "section": "\n  === SECTION 3: 16-bit 4.0 MHz — one PCB at a time (Mode 3) ===",
+        "name": "Only PCB1 = RED",
+        "speed": 4_000_000,
+        "encoding": "16bit",
+        "spi_mode": 3,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": [(0, 255, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
+    },
+    {
+        "name": "Only PCB2 = GREEN",
+        "speed": 4_000_000,
+        "encoding": "16bit",
+        "spi_mode": 3,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": [(0, 0, 0, 0), (0, 0, 255, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
+    },
+    # =================================================================
+    # SECTION 4: 4-bit @ 2.0 MHz baseline 
+    # =================================================================
+    {
+        "section": "\n  === SECTION 4: 4-bit @ 2.0 MHz baseline ===",
+        "name": "4-bit 2.0 MHz Mode 0 — unique colors (PCB1 should work)",
+        "speed": 2_000_000,
+        "encoding": "4bit",
+        "spi_mode": 0,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": UNIQUE,
+    },
+]
+
+def main():
+    print("=" * 68)
+    print("  TM1815B Forwarding Test — 16-Bit Hardware Gap Bypass")
+    print("=" * 68)
 
     for i, test in enumerate(TESTS, 1):
-        c1 = test.get("c1", [0x00, 0x00, 0x00, 0x00])
-        pixels = test.get("pixels", [(0,0,0,0)] * NUM_LEDS)
-        encoding = test.get("encoding", "10bit")
-        speed = test.get("speed", 4000000)
-        
-        # FIXED: Ensure default padding overrides old 80-byte attempts
-        reset = test.get("reset", 150) 
+        if "section" in test:
+            print(test["section"])
 
-        # Auto-generate C2 (bitwise NOT of C1)
-        c2 = [(~x) & 0xFF for x in c1]
+        c1 = test["c1"]
+        c2 = test["c2"]
+        pixels = test["pixels"]
+        speed = test["speed"]
+        encoding = test.get("encoding", "16bit")
+        spi_mode = test.get("spi_mode", 0)
 
-        # Verify C2 == ~C1
         for j in range(4):
-            if c2[j] != (~c1[j] & 0xFF):
-                print(f"*** ERROR: C2[{j}] == 0x{c2[j]:02X} "
-                      f"(expected 0x{c1[j] ^ 0xFF:02X}) ***")
+            if c2[j] != (c1[j] ^ 0xFF):
+                print(f"  *** ERROR: C2[{j}]=0x{c2[j]:02X} is NOT ~C1")
                 sys.exit(1)
 
-        if encoding == "10bit":
-            lut = LUT_10BIT
-        elif encoding == "8bit":
-            raise ValueError("8-bit encoding removed — use 10-bit")
-        else:
-            lut = LUT_4BIT
+        lut = LUT_16BIT if encoding == "16bit" else LUT_4BIT
+        reset = reset_bytes_for_speed(speed)
+        reset_us = reset * 8 / speed * 1e6
 
-        if encoding == "10bit":
+        if encoding == "16bit":
             t0_ns = int(1e9 / speed * 3)
             t1_ns = int(1e9 / speed * 6)
-            bits_per = 10
+            bits_per = 16
         else:
             t0_ns = int(1e9 / speed * 1)
             t1_ns = int(1e9 / speed * 3)
             bits_per = 4
 
         print(f"\n  [{i}/{len(TESTS)}] {test['name']}")
-        print(f"         Encoding: {bits_per}-bit | SPI: {speed/1e6:.1f} MHz | "
-              f"0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
+        print(f"         Encoding: {bits_per}-bit | SPI: {speed/1e6:.1f} MHz "
+              f"Mode {spi_mode} | 0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
         frame = build_frame(c1, c2, pixels, lut, reset)
-        print(f"         Frame: {len(frame)} bytes | C2 == ~C1: verified")
+        print(f"         Frame: {len(frame)} bytes | "
+              f"Reset: {reset} bytes = {reset_us:.0f}µs | C2 == ~C1: verified")
         print_test_info(c1, c2, pixels)
 
         input("         Press Enter to start...")
 
-        frames = run_test(list(frame), speed)
+        frames = run_test(list(frame), speed, spi_mode)
         print(f"         Sent {frames} frames")
 
-    print("\n  Done. Key questions should be solved.")
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
