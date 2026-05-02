@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PCB1 color cycle test — 20 colors (15 from button_map.py + 5 whites).
+PCB1 color selector — 20 colors + off, selected by keyboard.
 
 Uses the same format as led_c1c2_test.py Section 5 baseline:
   4-bit encoding @ 2.0 MHz, C1=[0x1E,0x1E,0x1E,0x1E], 4 pixels.
@@ -8,14 +8,15 @@ Uses the same format as led_c1c2_test.py Section 5 baseline:
 Colors from button_map.py are RGBW tuples (R,G,B,W).
 TM1815B frame order is WRGB, so we reorder before sending.
 
-Press Enter to advance — the next color starts immediately
-with no inactive period between colors.
+Press the assigned key to instantly switch colors. Ctrl+C to quit.
 
 Usage:
     python3 led_color_cycle_test.py
 """
 
 import sys
+import tty
+import termios
 import threading
 from spidev import SpiDev
 
@@ -51,157 +52,138 @@ def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
     return buf
 
 
-def fmt_c(c_bytes):
-    return f"[0x{c_bytes[0]:02X}, 0x{c_bytes[1]:02X}, 0x{c_bytes[2]:02X}, 0x{c_bytes[3]:02X}]"
-
-
-def fmt_d(pixel):
-    return f"W={pixel[0]:>3} R={pixel[1]:>3} G={pixel[2]:>3} B={pixel[3]:>3}"
-
-
-def print_test_info(c1, c2, pixels):
-    """Print C1, C2, and each D(n) on separate lines."""
-    for i, px in enumerate(pixels, 1):
-        print(f"         C1={fmt_c(c1)}  C2={fmt_c(c2)}  "
-              f"D{i}: {fmt_d(px)}")
-
-
 def rgbw_to_wrgb(r, g, b, w):
     return (w, r, g, b)
 
 
-# 16 colors from button_map.py — (name, RGBW tuple)
-# 5 white temperatures — values given in WRGB order, stored as RGBW
-COLORS = [
-    ("Deep Red",    (180, 0,   0,   0)),
-    ("Mint",        (0,   200, 120, 0)),
-    ("Dark Blue",   (0,   0,   139, 0)),
-    ("Red Prime",   (255, 0,   0,   0)),
-    ("Orange",      (255, 100, 0,   0)),
-    ("Light Blue",  (100, 150, 255, 0)),
-    ("Violet",      (148, 0,   211, 0)),
-    ("Green Prime", (0,   255, 0,   0)),
-    ("Yellow",      (255, 255, 0,   0)),
-    ("Cyan",        (0,   255, 255, 0)),
-    ("Purple",      (128, 0,   128, 0)),
-    ("Blue Prime",  (0,   0,   255, 0)),
-    ("Neon Yellow", (220, 255, 0,   0)),
-    ("Steel Blue",  (70,  130, 180, 0)),
-    ("Magenta",     (255, 0,   255, 0)),
-    # 5 white temperatures (user values in WRGB, stored as RGBW)
-    ("Candlelight ~1800K",    (255, 128, 0,   76)),
-    ("Warm White ~3000K",     (255, 128, 12,  255)),
-    ("Neutral White ~4000K",  (0,   0,   0,   255)),
-    ("Cool White ~5000K",     (0,   64,  128, 217)),
-    ("Daylight ~6500K",       (0,   128, 255, 178)),
+# (key, name, RGBW tuple) — Off uses None for RGBW
+COLOR_MAP = [
+    ('1', "Deep Red",              (180, 0,   0,   0)),
+    ('2', "Mint",                  (0,   200, 120, 0)),
+    ('3', "Dark Blue",             (0,   0,   139, 0)),
+    ('4', "Red Prime",             (255, 0,   0,   0)),
+    ('q', "Orange",                (255, 100, 0,   0)),
+    ('w', "Light Blue",            (100, 150, 255, 0)),
+    ('e', "Violet",                (148, 0,   211, 0)),
+    ('r', "Green Prime",           (0,   255, 0,   0)),
+    ('a', "Yellow",                (255, 255, 0,   0)),
+    ('s', "Cyan",                  (0,   255, 255, 0)),
+    ('d', "Purple",                (128, 0,   128, 0)),
+    ('f', "Blue Prime",            (0,   0,   255, 0)),
+    ('z', "Neon Yellow",           (220, 255, 0,   0)),
+    ('x', "Steel Blue",            (70,  130, 180, 0)),
+    ('c', "Magenta",               (255, 0,   255, 0)),
+    ('v', "Candlelight ~1800K",    (255, 128, 0,   76)),
+    ('b', "Warm White ~3000K",     (255, 128, 12,  255)),
+    ('n', "Neutral White ~4000K",  (0,   0,   0,   255)),
+    ('m', "Cool White ~5000K",     (0,   64,  128, 217)),
+    (',', "Daylight ~6500K",       (0,   128, 255, 178)),
+    ('p', "Off",                   None),
 ]
 
-# Build TESTS list — same format as led_c1c2_test.py Section 5 baseline
-TESTS = []
-for name, rgbw in COLORS:
-    r, g, b, w = rgbw
-    wrgb = rgbw_to_wrgb(r, g, b, w)
-    TESTS.append({
-        "name": f"4-bit 2.0 MHz — {name} (R={r} G={g} B={b} W={w})",
-        "speed": 2_000_000,
-        "encoding": "4bit",
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
-        "pixels": [wrgb] * NUM_LEDS,
-    })
+C1 = [0x1E, 0x1E, 0x1E, 0x1E]
+C2 = [0xE1, 0xE1, 0xE1, 0xE1]
+SPEED = 2_000_000
+RESET = 80
+
+
+def build_all_bufs():
+    """Pre-build frame buffers for every color. Off = all zeros."""
+    bufs = {}
+    for key, name, rgbw in COLOR_MAP:
+        if rgbw is None:
+            wrgb = (0, 0, 0, 0)
+        else:
+            r, g, b, w = rgbw
+            wrgb = rgbw_to_wrgb(r, g, b, w)
+        buf = build_frame(C1, C2, [wrgb] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET)
+        bufs[key] = list(buf)
+    return bufs
+
+
+def getch():
+    """Read a single character from stdin without echo."""
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    return ch
 
 
 def main():
     print("=" * 68)
-    print("  PCB1 Color Cycle — 20 colors (15 button_map + 5 whites)")
+    print("  PCB1 Color Selector — press a key to switch color")
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
-    print("  Format: 4-bit encoding @ 2.0 MHz (same as Section 5 baseline)")
+    print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
     print("  C1=[0x1E, 0x1E, 0x1E, 0x1E]  C2=[0xE1, 0xE1, 0xE1, 0xE1]")
-    print("  All 4 PCBs get the same color each test.")
     print()
-    print("  Seamless transitions — next color starts immediately on Enter.")
-    print("  Press Enter to START, then Enter to advance to next color.")
+    print("  Key assignments:")
+    for key, name, rgbw in COLOR_MAP:
+        if rgbw is None:
+            print(f"    [{key}]  {name}")
+        else:
+            r, g, b, w = rgbw
+            print(f"    [{key}]  {name:.<30s} R={r:>3} G={g:>3} B={b:>3} W={w:>3}")
+    print()
+    print("  Ctrl+C to quit.")
     print("=" * 68)
 
-    c1 = [0x1E, 0x1E, 0x1E, 0x1E]
-    c2 = [0xE1, 0xE1, 0xE1, 0xE1]
-    speed = 2_000_000
-    reset = 80
-
     for j in range(4):
-        if c2[j] != (c1[j] ^ 0xFF):
-            print(f"  *** ERROR: C2[{j}]=0x{c2[j]:02X} is NOT "
-                  f"~C1[{j}]=0x{c1[j]:02X} "
-                  f"(expected 0x{c1[j] ^ 0xFF:02X}) ***")
+        if C2[j] != (C1[j] ^ 0xFF):
+            print(f"  *** ERROR: C2[{j}]=0x{C2[j]:02X} is NOT "
+                  f"~C1[{j}]=0x{C1[j]:02X} "
+                  f"(expected 0x{C1[j] ^ 0xFF:02X}) ***")
             sys.exit(1)
 
-    t0_ns = int(1e9 / speed * 1)
-    t1_ns = int(1e9 / speed * 3)
+    bufs = build_all_bufs()
+    valid_keys = {key for key, _, _ in COLOR_MAP}
+    key_to_name = {key: name for key, name, _ in COLOR_MAP}
 
-    # Pre-build all frame buffers
-    bufs = []
-    for test in TESTS:
-        buf = build_frame(c1, c2, test["pixels"], LUT_4BIT, reset_bytes=reset)
-        bufs.append(list(buf))
-
-    # Print all test info
-    for i, test in enumerate(TESTS, 1):
-        pixels = test["pixels"]
-        frame_bytes = len(build_frame(c1, c2, pixels, LUT_4BIT, reset))
-        print(f"\n  [{i:>2}/{len(TESTS)}] {test['name']}")
-        print(f"         Encoding: 4-bit | SPI: {speed/1e6:.1f} MHz | "
-              f"0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
-        print(f"         Frame: {frame_bytes} bytes | C2 == ~C1: verified")
-        print_test_info(c1, c2, pixels)
-
-    # Wait for user to start
-    input("\n  Press Enter to start color 1...")
-
-    # Open SPI once, keep it open for all colors
     spi = SpiDev()
     spi.open(1, 0)
-    spi.max_speed_hz = speed
+    spi.max_speed_hz = SPEED
     actual = spi.max_speed_hz
     spi.mode = 0b00
     spi.lsbfirst = False
 
-    print(f"\n  Requested {speed/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
-    sys.stdout.flush()
+    print(f"\n  SPI: requested {SPEED/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
 
-    current_idx = 0
-    advance = threading.Event()
-    stop = threading.Event()
+    current_key = 'p'
+    current_buf = bufs['p']
+    lock = threading.Lock()
+    running = True
 
-    def wait_for_enter():
-        while not stop.is_set():
-            input()
-            advance.set()
+    def spi_loop():
+        while running:
+            with lock:
+                buf = current_buf
+            spi.xfer2(buf)
 
-    t = threading.Thread(target=wait_for_enter, daemon=True)
-    t.start()
+    spi_thread = threading.Thread(target=spi_loop, daemon=True)
+    spi_thread.start()
 
-    for i in range(len(TESTS)):
-        current_idx = i
-        advance.clear()
-        name = TESTS[i]["name"]
-        print(f"\n  [{i+1:>2}/{len(TESTS)}] NOW: {name}")
-        if i < len(TESTS) - 1:
-            print(f"         Press Enter for next color...")
-        else:
-            print(f"         Press Enter to finish...")
-        sys.stdout.flush()
+    print(f"  Active: Off")
+    print(f"  Press a key to select a color...\n")
 
-        frame_count = 0
-        while not advance.is_set():
-            spi.xfer2(bufs[i])
-            frame_count += 1
-
-        print(f"         Sent {frame_count} frames")
-
-    stop.set()
-    spi.close()
-    print(f"\n  Done. Did PCB1 change color for each of the {len(TESTS)} tests?")
+    try:
+        while True:
+            ch = getch()
+            if ch == '\x03':
+                break
+            if ch in valid_keys and ch != current_key:
+                with lock:
+                    current_buf = bufs[ch]
+                current_key = ch
+                print(f"  → {key_to_name[ch]}")
+    finally:
+        running = False
+        spi_thread.join(timeout=1)
+        spi.close()
+        print("\n  Stopped.")
 
 
 if __name__ == "__main__":
