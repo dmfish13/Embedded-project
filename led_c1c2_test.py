@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-C1/C2 current register test — systematically tests the C1 and C2
-constant-current command bytes to verify proper encoding and
-TM1815B reception.
+C1/C2 forwarding test — finds the SPI speed and C1/C2 values that
+enable downstream TM1815B chips to receive forwarded data.
 
-Tests different current values, verifies C2 = ~C1 requirement,
-and checks if incorrect C2 prevents data decoding.
+Per the TM1815B datasheet:
+  - Frame: [Reset][C1][C2][D1][D2]...[Dn][Reset]
+  - C1 (32 bits): constant-current setting, bits 7,6 of each byte = 0
+  - C2 (32 bits): must be bitwise NOT of C1
+  - D(n) (32 bits): PWM data for LED PCB n (W, R, G, B — 8 bits each)
+  - After receiving C1, chip forwards C1 on DO while receiving C2
+  - Each chip keeps its first D packet, forwards the rest
+  - Logic 0 LOW time: 620-820 ns (2.0 MHz gives 500ns = OUT OF SPEC)
+  - Logic 1 LOW time: 1300-2000 ns
+  - Reset: HIGH >= 200 us
 
-Setup: Pi → level shifter → PCB1 → PCB2 → PCB3 → PCB4 (4 LEDs)
+Setup: Pi → SN74AHCT125N → PCB1 → PCB2 → PCB3 → PCB4
+       (10kΩ pull-up on GPIO 20 to 3.3V)
 
 Usage:
     python3 led_c1c2_test.py
@@ -18,7 +26,6 @@ import threading
 from spidev import SpiDev
 
 NUM_LEDS = 4
-SPI_SPEED = 2_000_000
 
 
 def encode_byte(value):
@@ -37,29 +44,30 @@ def encode_byte(value):
 LUT = [encode_byte(v) for v in range(256)]
 
 
-def build_frame_raw(c1_bytes, c2_bytes, pixels):
-    """Build frame with explicit C1 and C2 byte values.
+def build_frame(c1_bytes, c2_bytes, pixels, reset_bytes=80):
+    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]
 
-    c1_bytes: 4 raw bytes for C1 [W, R, G, B]
-    c2_bytes: 4 raw bytes for C2 [W, R, G, B]
-    pixels:   list of (W, R, G, B) tuples for pixel data
+    c1_bytes: list of 4 bytes [W, R, G, B] (bits 7,6 must be 0)
+    c2_bytes: list of 4 bytes [W, R, G, B] (must be ~C1)
+    pixels:   list of (W, R, G, B) tuples, one per LED PCB
+    reset_bytes: number of 0xFF bytes for reset period
     """
-    buf = bytearray(b'\xFF' * 80)
+    buf = bytearray(b'\xFF' * reset_bytes)
     for bv in c1_bytes:
         buf += LUT[bv]
     for bv in c2_bytes:
         buf += LUT[bv]
     for w, r, g, b in pixels:
         buf += LUT[w] + LUT[r] + LUT[g] + LUT[b]
-    buf += b'\xFF' * 80
+    buf += b'\xFF' * reset_bytes
     return buf
 
 
-def run_test(buf_list):
-    """Send continuously until Enter is pressed."""
+def run_test(buf_list, spi_speed):
+    """Send continuously at given speed until Enter is pressed."""
     spi = SpiDev()
     spi.open(1, 0)
-    spi.max_speed_hz = SPI_SPEED
+    spi.max_speed_hz = spi_speed
     spi.mode = 0b00
     spi.lsbfirst = False
 
@@ -85,199 +93,238 @@ def run_test(buf_list):
     return frame_count
 
 
-RED_ALL = [(0, 255, 0, 0)] * NUM_LEDS
-WHITE_ALL = [(255, 0, 0, 0)] * NUM_LEDS
-FULL_ALL = [(255, 255, 255, 255)] * NUM_LEDS
+def fmt_c(c_bytes):
+    return f"[0x{c_bytes[0]:02X}, 0x{c_bytes[1]:02X}, 0x{c_bytes[2]:02X}, 0x{c_bytes[3]:02X}]"
+
+
+def fmt_d(pixel):
+    return f"W={pixel[0]:>3} R={pixel[1]:>3} G={pixel[2]:>3} B={pixel[3]:>3}"
+
+
+def print_test_info(c1, c2, pixels):
+    """Print C1, C2, and each D(n) on separate lines."""
+    for i, px in enumerate(pixels, 1):
+        print(f"         C1={fmt_c(c1)}  C2={fmt_c(c2)}  "
+              f"D{i}: {fmt_d(px)}")
+
 
 TESTS = [
-    # =====================================================
-    # SECTION 1: Valid C1/C2 with different current levels
-    # C2 = bitwise NOT of C1. All pixel data = RED.
-    # Bits 7,6 of each C1 byte must be 0.
-    # =====================================================
+    # =================================================================
+    # SECTION 1: SPI speed comparison — same frame, different speeds
+    # At 1.6 MHz: logic 0 LOW = 625ns (in spec: 620-820ns)
+    # At 2.0 MHz: logic 0 LOW = 500ns (OUT OF SPEC: < 620ns min)
+    # If forwarding works at 1.6 but not 2.0, timing is the issue.
+    # =================================================================
     {
-        "section": "\n  === SECTION 1: Valid C1/C2, varying current ===",
-        "name": "Current = 30 (0x1E), all RED",
+        "section": "\n  === SECTION 1: Speed comparison (unique colors per PCB) ===",
+        "name": "1.6 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
+        "speed": 1_600_000,
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
-        "pixels": RED_ALL,
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
     },
     {
-        "name": "Current = 0 (minimum 6.5mA), all RED",
+        "name": "2.0 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
+        "speed": 2_000_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+    },
+    {
+        "name": "1.8 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
+        "speed": 1_800_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+    },
+
+    # =================================================================
+    # SECTION 2: C1 current values at 1.6 MHz
+    # Tests if a specific current value is needed for forwarding.
+    # All use unique colors to verify each PCB gets its own data.
+    # =================================================================
+    {
+        "section": "\n  === SECTION 2: C1 current values @ 1.6 MHz ===",
+        "name": "Current=0 (minimum 6.5mA) — unique colors",
+        "speed": 1_600_000,
         "c1": [0x00, 0x00, 0x00, 0x00],
-        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
-        "pixels": RED_ALL,
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
     },
     {
-        "name": "Current = 63 (0x3F, max 38mA), all RED",
+        "name": "Current=30 (0x1E, ~19mA) — unique colors",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+    },
+    {
+        "name": "Current=63 (0x3F, maximum 38mA) — unique colors",
+        "speed": 1_600_000,
         "c1": [0x3F, 0x3F, 0x3F, 0x3F],
-        "c2": [0xC0, 0xC0, 0xC0, 0xC0],
-        "pixels": RED_ALL,
-    },
-    {
-        "name": "Current = 1 (0x01), all RED",
-        "c1": [0x01, 0x01, 0x01, 0x01],
-        "c2": [0xFE, 0xFE, 0xFE, 0xFE],
-        "pixels": RED_ALL,
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
     },
 
-    # =====================================================
-    # SECTION 2: Per-channel current control
-    # Set different current per WRGB channel in C1.
-    # All pixel PWM = 255 to see the current effect.
-    # =====================================================
+    # =================================================================
+    # SECTION 3: Reset length at 1.6 MHz
+    # Datasheet says reset >= 200us. At 1.6 MHz, 80 bytes = 400us.
+    # Also: inter-byte HIGH must NOT exceed 126us or chip resets.
+    # =================================================================
     {
-        "section": "\n  === SECTION 2: Per-channel current in C1 ===",
-        "name": "W=63, R=0, G=0, B=0 — only W has high current",
-        "c1": [0x3F, 0x00, 0x00, 0x00],
-        "c2": [0xC0, 0xFF, 0xFF, 0xFF],
-        "pixels": FULL_ALL,
-    },
-    {
-        "name": "W=0, R=63, G=0, B=0 — only R has high current",
-        "c1": [0x00, 0x3F, 0x00, 0x00],
-        "c2": [0xFF, 0xC0, 0xFF, 0xFF],
-        "pixels": FULL_ALL,
-    },
-    {
-        "name": "W=0, R=0, G=63, B=0 — only G has high current",
-        "c1": [0x00, 0x00, 0x3F, 0x00],
-        "c2": [0xFF, 0xFF, 0xC0, 0xFF],
-        "pixels": FULL_ALL,
-    },
-    {
-        "name": "W=0, R=0, G=0, B=63 — only B has high current",
-        "c1": [0x00, 0x00, 0x00, 0x3F],
-        "c2": [0xFF, 0xFF, 0xFF, 0xC0],
-        "pixels": FULL_ALL,
-    },
-
-    # =====================================================
-    # SECTION 3: Broken C2 (C2 != ~C1)
-    # Datasheet says chip will not decode data correctly.
-    # This tests whether a bad C2 causes the chip to
-    # reject the frame entirely.
-    # =====================================================
-    {
-        "section": "\n  === SECTION 3: Invalid C2 (should fail to decode) ===",
-        "name": "C1=0x1E, C2=0x1E (same as C1, NOT inverted)",
+        "section": "\n  === SECTION 3: Reset length @ 1.6 MHz, current=30 ===",
+        "name": "Reset=40 bytes (200us) — minimum per datasheet",
+        "speed": 1_600_000,
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "c2": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": RED_ALL,
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+        "reset": 40,
     },
     {
-        "name": "C1=0x1E, C2=0x00 (wrong inversion)",
+        "name": "Reset=80 bytes (400us) — standard",
+        "speed": 1_600_000,
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "c2": [0x00, 0x00, 0x00, 0x00],
-        "pixels": RED_ALL,
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+        "reset": 80,
     },
     {
-        "name": "C1=0x1E, C2=0xFF (wrong inversion)",
+        "name": "Reset=200 bytes (1ms)",
+        "speed": 1_600_000,
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
-        "pixels": RED_ALL,
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+        "reset": 200,
     },
 
-    # =====================================================
-    # SECTION 4: No C1/C2 — just pixel data
-    # Tests what happens if C1/C2 are omitted entirely.
-    # =====================================================
+    # =================================================================
+    # SECTION 4: All same color at 1.6 MHz
+    # If all PCBs show the same color, forwarding works but we can't
+    # distinguish addressing. Use as a simpler forwarding check.
+    # =================================================================
     {
-        "section": "\n  === SECTION 4: No C1/C2 (data only) ===",
-        "name": "Skip C1/C2, send pixel data directly",
-        "c1": None,
-        "c2": None,
-        "pixels": RED_ALL,
+        "section": "\n  === SECTION 4: All same color @ 1.6 MHz, current=30 ===",
+        "name": "All RED",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0)] * NUM_LEDS,
+    },
+    {
+        "name": "All GREEN",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 0, 255, 0)] * NUM_LEDS,
+    },
+    {
+        "name": "All BLUE",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 0, 0, 255)] * NUM_LEDS,
     },
 
-    # =====================================================
-    # SECTION 5: C1/C2 with white channel test
-    # Verify current setting affects white LED brightness.
-    # =====================================================
+    # =================================================================
+    # SECTION 5: Individual PCB addressing at 1.6 MHz
+    # Only one PCB lit at a time — confirms forwarding reaches each.
+    # =================================================================
     {
-        "section": "\n  === SECTION 5: White LED current sweep ===",
-        "name": "W current=63, R/G/B current=0, pixels=W only",
-        "c1": [0x3F, 0x00, 0x00, 0x00],
-        "c2": [0xC0, 0xFF, 0xFF, 0xFF],
-        "pixels": WHITE_ALL,
+        "section": "\n  === SECTION 5: One PCB at a time @ 1.6 MHz, current=30 ===",
+        "name": "Only PCB1 = RED",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
-        "name": "W current=10, R/G/B current=0, pixels=W only",
-        "c1": [0x0A, 0x00, 0x00, 0x00],
-        "c2": [0xF5, 0xFF, 0xFF, 0xFF],
-        "pixels": WHITE_ALL,
+        "name": "Only PCB2 = GREEN",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 0, 0, 0), (0, 0, 255, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
-        "name": "W current=0 (min 6.5mA), R/G/B current=0, pixels=W only",
+        "name": "Only PCB3 = BLUE",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 255), (0, 0, 0, 0)],
+    },
+    {
+        "name": "Only PCB4 = WHITE",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (255, 0, 0, 0)],
+    },
+
+    # =================================================================
+    # SECTION 6: Fine speed sweep around the spec boundary
+    # Logic 0 LOW must be 620-820ns. Find the fastest working speed.
+    # =================================================================
+    {
+        "section": "\n  === SECTION 6: Fine speed sweep (unique colors) ===",
+        "name": "1.4 MHz (logic 0 LOW = 714ns)",
+        "speed": 1_400_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+    },
+    {
+        "name": "1.6 MHz (logic 0 LOW = 625ns)",
+        "speed": 1_600_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+    },
+    {
+        "name": "1.7 MHz (logic 0 LOW = 588ns — below 620ns spec)",
+        "speed": 1_700_000,
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+    },
+
+    # =================================================================
+    # SECTION 7: All off (baseline)
+    # =================================================================
+    {
+        "section": "\n  === SECTION 7: All off ===",
+        "name": "All off @ 1.6 MHz",
+        "speed": 1_600_000,
         "c1": [0x00, 0x00, 0x00, 0x00],
-        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
-        "pixels": WHITE_ALL,
-    },
-
-    # =====================================================
-    # SECTION 6: All off baseline
-    # =====================================================
-    {
-        "section": "\n  === SECTION 6: All off ===",
-        "name": "Current=0, PWM=0",
-        "c1": [0x00, 0x00, 0x00, 0x00],
-        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
         "pixels": [(0, 0, 0, 0)] * NUM_LEDS,
     },
 ]
 
 
 def main():
-    print("=" * 62)
-    print("  TM1815B C1/C2 Current Register Test")
-    print(f"  {NUM_LEDS} LEDs @ {SPI_SPEED/1e6:.1f} MHz SPI")
+    print("=" * 66)
+    print("  TM1815B C1/C2 Forwarding Test")
+    print(f"  {NUM_LEDS} PCBs daisy-chained: PCB1 → PCB2 → PCB3 → PCB4")
     print()
-    print("  C1 format: [W(6bit), R(6bit), G(6bit), B(6bit)]")
-    print("  C2 must = bitwise NOT of C1")
-    print("  Bits 7,6 of each C1 byte must be 0")
+    print("  Datasheet timing requirements:")
+    print("    Logic 0 LOW: 620-820 ns    Logic 1 LOW: 1300-2000 ns")
+    print("    At 1.6 MHz SPI: 0=625ns, 1=1875ns  (BOTH IN SPEC)")
+    print("    At 2.0 MHz SPI: 0=500ns, 1=1500ns  (0 OUT OF SPEC)")
+    print()
+    print("  Frame: [Reset 0xFF] [C1] [C2] [D1] [D2] [D3] [D4] [Reset 0xFF]")
+    print("  C2 = bitwise NOT of C1")
     print()
     print("  Press Enter to START each test, Enter again to STOP.")
-    print("=" * 62)
+    print("=" * 66)
 
     for i, test in enumerate(TESTS, 1):
         if "section" in test:
             print(test["section"])
 
         c1 = test["c1"]
-        c2 = test["c2"]
+        c2 = [b ^ 0xFF for b in c1]
         pixels = test["pixels"]
+        speed = test["speed"]
+        reset = test.get("reset", 80)
+        t0_ns = int(1e9 / speed)
 
         print(f"\n  [{i}/{len(TESTS)}] {test['name']}")
-        if c1 is not None:
-            print(f"         C1: [{', '.join(f'0x{b:02X}' for b in c1)}]")
-            print(f"         C2: [{', '.join(f'0x{b:02X}' for b in c2)}]")
-            valid = all(c2[j] == (c1[j] ^ 0xFF) for j in range(4))
-            print(f"         C2 == ~C1: {valid}")
-        else:
-            print("         C1/C2: OMITTED")
-        print(f"         Pixels: W={pixels[0][0]} R={pixels[0][1]}"
-              f" G={pixels[0][2]} B={pixels[0][3]} (x{len(pixels)})")
+        print(f"         SPI: {speed/1e6:.1f} MHz | "
+              f"Logic 0 LOW: {t0_ns}ns | "
+              f"Reset: {reset} bytes")
+        print_test_info(c1, c2, pixels)
 
         input("         Press Enter to start...")
 
-        if c1 is not None:
-            buf = build_frame_raw(c1, c2, pixels)
-        else:
-            buf = bytearray(b'\xFF' * 80)
-            for w, r, g, b in pixels:
-                buf += LUT[w] + LUT[r] + LUT[g] + LUT[b]
-            buf += b'\xFF' * 80
-
-        frames = run_test(list(buf))
+        buf = build_frame(c1, c2, pixels, reset_bytes=reset)
+        frames = run_test(list(buf), speed)
         print(f"         Sent {frames} frames")
 
-    print("\n  Done.")
-    print("  Key observations:")
-    print("    1. Did current level affect LED brightness? (Section 1)")
-    print("    2. Could you see per-channel current differences? (Section 2)")
-    print("    3. Did invalid C2 cause the frame to be rejected? (Section 3)")
-    print("    4. Did omitting C1/C2 still work? (Section 4)")
-    print("    5. Did white LED brightness track W current? (Section 5)")
+    print("\n  Done. Key questions:")
+    print("    1. Did any speed make PCBs 2-4 respond? (Section 1)")
+    print("    2. Did current value matter for forwarding? (Section 2)")
+    print("    3. Did reset length affect behavior? (Section 3)")
+    print("    4. At the working speed, did each PCB show its own color? (Sec 4-5)")
+    print("    5. What is the fastest speed that still forwards? (Section 6)")
 
 
 if __name__ == "__main__":
