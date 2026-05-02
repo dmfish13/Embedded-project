@@ -1,25 +1,20 @@
 #!/usr/bin/env python3
 """
-C1/C2 forwarding test — uses 8-bit encoding at 3.2 MHz to achieve
-in-spec TM1815B timing with byte-aligned data bits.
+C1/C2 forwarding test — 10-bit encoding at 4.0 MHz for in-spec timing.
 
 Previous findings:
-  - 4-bit encoding at 2.0 MHz: PCB1 works, PCBs 2-4 don't forward
-    (logic 0 LOW = 500ns, below 620ns spec)
-  - 4-bit encoding at 1.6 MHz: NOTHING works, even PCB1 freezes
-    (Pi 5 SPI issue at non-2.0 MHz speeds)
+  - Pi 5 SPI only works cleanly at 2.0 MHz and 4.0 MHz
+  - 4-bit @ 2.0 MHz: PCB1 works, forwarding fails (0 LOW=500ns < 620ns)
+  - 8-bit @ 4.0 MHz: PCB1 works, forwarding fails (0 LOW=500ns < 620ns)
+  - All other SPI speeds: nothing works (Pi 5 SPI controller issue)
 
-New approach — 8-bit encoding (1 SPI byte per data bit):
-  Logic 0: 0x3F = 00111111 → 2 LOW bits + 6 HIGH bits
-  Logic 1: 0x07 = 00000111 → 5 LOW bits + 3 HIGH bits
+New approach — 10-bit encoding at 4.0 MHz:
+  Logic 0: 3 LOW + 7 HIGH → 0 LOW = 3 × 250ns = 750ns  (in 620-820ns)
+  Logic 1: 6 LOW + 4 HIGH → 1 LOW = 6 × 250ns = 1500ns (in 1300-2000ns)
+  Bit period = 10 × 250ns = 2500ns (exactly 400 KHz)
 
-  At 3.2 MHz SPI:
-    Logic 0 LOW = 2 × 312.5ns = 625ns  (in 620-820ns spec)
-    Logic 1 LOW = 5 × 312.5ns = 1562ns (in 1300-2000ns spec)
-    Bit period  = 8 × 312.5ns = 2500ns (exactly 400 KHz)
-
-  Each data bit = 1 SPI byte → inter-byte gaps fall between
-  data bits (in HIGH region), not within them.
+  10 bits × 8 data bits = 80 SPI bits = 10 SPI bytes per data byte.
+  Frame size: 80 + 10×4 + 10×4 + 10×4×4 + 80 = 400 bytes (within limit).
 
 Setup: Pi → SN74AHCT125N → PCB1 → PCB2 → PCB3 → PCB4
        (10kΩ pull-up on GPIO 20 to 3.3V)
@@ -35,7 +30,7 @@ from spidev import SpiDev
 NUM_LEDS = 4
 
 
-# === 4-bit encoding (original, works at 2.0 MHz for PCB1 only) ===
+# === 4-bit encoding (baseline, works at 2.0 MHz for PCB1 only) ===
 
 def encode_byte_4bit(value):
     encoded = 0
@@ -53,20 +48,32 @@ def encode_byte_4bit(value):
 LUT_4BIT = [encode_byte_4bit(v) for v in range(256)]
 
 
-# === 8-bit encoding (new, 1 SPI byte per data bit) ===
+# === 10-bit encoding (3 LOW for 0, 6 LOW for 1, at 4.0 MHz) ===
 
-def encode_byte_8bit(value):
-    result = bytearray(8)
-    for i in range(8):
-        bit_pos = 7 - i
+def encode_byte_10bit(value):
+    """Encode one data byte (8 bits) into 80 SPI bits (10 bytes).
+
+    Each data bit becomes 10 SPI bits:
+      Logic 0: 0001111111 → 3 LOW + 7 HIGH (MSB first on wire)
+      Logic 1: 0000001111 → 6 LOW + 4 HIGH
+
+    At 4.0 MHz: 0 LOW = 750ns, 1 LOW = 1500ns, period = 2500ns.
+    """
+    bits = 0
+    for bit_pos in range(7, -1, -1):
+        bits <<= 10
         if value & (1 << bit_pos):
-            result[i] = 0x07
+            bits |= 0b0000001111
         else:
-            result[i] = 0x3F
+            bits |= 0b0001111111
+    result = bytearray(10)
+    for i in range(10):
+        result[9 - i] = bits & 0xFF
+        bits >>= 8
     return bytes(result)
 
 
-LUT_8BIT = [encode_byte_8bit(v) for v in range(256)]
+LUT_10BIT = [encode_byte_10bit(v) for v in range(256)]
 
 
 def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
@@ -134,129 +141,122 @@ UNIQUE = [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)]
 
 TESTS = [
     # =================================================================
-    # SECTION 1: 8-bit encoding — the main test
-    # 3.2 MHz SPI × 8 bits/data-bit = 400 KHz data rate
-    # Logic 0 LOW = 625ns, Logic 1 LOW = 1562ns — both in spec
+    # SECTION 1: 10-bit encoding @ 4.0 MHz — the main test
+    # 0 LOW = 750ns (in 620-820ns), 1 LOW = 1500ns (in 1300-2000ns)
+    # Bit period = 2500ns = exactly 400 KHz
     # =================================================================
     {
-        "section": "\n  === SECTION 1: 8-bit encoding @ 3.2 MHz (all timing in spec) ===",
-        "name": "8-bit 3.2 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "section": "\n  === SECTION 1: 10-bit encoding @ 4.0 MHz (all timing in spec) ===",
+        "name": "10-bit 4.0 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": UNIQUE,
     },
     {
-        "name": "8-bit 3.2 MHz — All RED",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "name": "10-bit 4.0 MHz — All RED",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 255, 0, 0)] * NUM_LEDS,
     },
     {
-        "name": "8-bit 3.2 MHz — All GREEN",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "name": "10-bit 4.0 MHz — All GREEN",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 255, 0)] * NUM_LEDS,
     },
-
-    # =================================================================
-    # SECTION 2: 8-bit encoding speed variations
-    # Try nearby SPI speeds that also give in-spec timing
-    # =================================================================
     {
-        "section": "\n  === SECTION 2: 8-bit encoding at other speeds ===",
-        "name": "8-bit 2.8 MHz — unique colors (0 LOW=714ns, 1 LOW=1786ns)",
-        "speed": 2_800_000,
-        "encoding": "8bit",
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
-        "pixels": UNIQUE,
-    },
-    {
-        "name": "8-bit 2.4 MHz — unique colors (0 LOW=833ns, 1 LOW=2083ns)",
-        "speed": 2_400_000,
-        "encoding": "8bit",
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
-        "pixels": UNIQUE,
-    },
-    {
-        "name": "8-bit 4.0 MHz — unique colors (0 LOW=500ns OUT OF SPEC)",
+        "name": "10-bit 4.0 MHz — All BLUE",
         "speed": 4_000_000,
-        "encoding": "8bit",
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
-        "pixels": UNIQUE,
+        "pixels": [(0, 0, 0, 255)] * NUM_LEDS,
     },
 
     # =================================================================
-    # SECTION 3: 8-bit encoding C1 current values @ 3.2 MHz
+    # SECTION 2: Individual PCB addressing @ 4.0 MHz 10-bit
     # =================================================================
     {
-        "section": "\n  === SECTION 3: 8-bit 3.2 MHz — C1 current values ===",
-        "name": "Current=0 (minimum 6.5mA)",
-        "speed": 3_200_000,
-        "encoding": "8bit",
-        "c1": [0x00, 0x00, 0x00, 0x00],
-        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
-        "pixels": UNIQUE,
-    },
-    {
-        "name": "Current=63 (0x3F, maximum 38mA)",
-        "speed": 3_200_000,
-        "encoding": "8bit",
-        "c1": [0x3F, 0x3F, 0x3F, 0x3F],
-        "c2": [0xC0, 0xC0, 0xC0, 0xC0],
-        "pixels": UNIQUE,
-    },
-
-    # =================================================================
-    # SECTION 4: Individual PCB addressing @ 3.2 MHz 8-bit
-    # =================================================================
-    {
-        "section": "\n  === SECTION 4: 8-bit 3.2 MHz — one PCB at a time ===",
+        "section": "\n  === SECTION 2: 10-bit 4.0 MHz — one PCB at a time ===",
         "name": "Only PCB1 = RED",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 255, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
         "name": "Only PCB2 = GREEN",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 0, 0), (0, 0, 255, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
         "name": "Only PCB3 = BLUE",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 255), (0, 0, 0, 0)],
     },
     {
         "name": "Only PCB4 = WHITE",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (255, 0, 0, 0)],
     },
 
     # =================================================================
-    # SECTION 5: Baseline — 4-bit encoding at 2.0 MHz (known: PCB1 only)
+    # SECTION 3: C1 current values @ 4.0 MHz 10-bit
     # =================================================================
     {
-        "section": "\n  === SECTION 5: 4-bit encoding @ 2.0 MHz (baseline) ===",
+        "section": "\n  === SECTION 3: 10-bit 4.0 MHz — C1 current values ===",
+        "name": "Current=0 (minimum 6.5mA)",
+        "speed": 4_000_000,
+        "encoding": "10bit",
+        "c1": [0x00, 0x00, 0x00, 0x00],
+        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
+        "pixels": UNIQUE,
+    },
+    {
+        "name": "Current=63 (0x3F, maximum 38mA)",
+        "speed": 4_000_000,
+        "encoding": "10bit",
+        "c1": [0x3F, 0x3F, 0x3F, 0x3F],
+        "c2": [0xC0, 0xC0, 0xC0, 0xC0],
+        "pixels": UNIQUE,
+    },
+
+    # =================================================================
+    # SECTION 4: 10-bit at 2.0 MHz (slower data rate but clean SPI)
+    # 0 LOW = 1500ns → in logic 1 range! Won't work as logic 0.
+    # Included to show why 4.0 MHz is needed for 10-bit.
+    # =================================================================
+    {
+        "section": "\n  === SECTION 4: 10-bit @ 2.0 MHz (control — should fail) ===",
+        "name": "10-bit 2.0 MHz — unique colors (0 LOW=1500ns = wrong!)",
+        "speed": 2_000_000,
+        "encoding": "10bit",
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
+        "pixels": UNIQUE,
+    },
+
+    # =================================================================
+    # SECTION 5: Baseline — 4-bit @ 2.0 MHz (known: PCB1 only)
+    # =================================================================
+    {
+        "section": "\n  === SECTION 5: 4-bit @ 2.0 MHz baseline ===",
         "name": "4-bit 2.0 MHz — unique colors (PCB1 should work)",
         "speed": 2_000_000,
         "encoding": "4bit",
@@ -270,9 +270,9 @@ TESTS = [
     # =================================================================
     {
         "section": "\n  === SECTION 6: All off ===",
-        "name": "8-bit 3.2 MHz — all off",
-        "speed": 3_200_000,
-        "encoding": "8bit",
+        "name": "10-bit 4.0 MHz — all off",
+        "speed": 4_000_000,
+        "encoding": "10bit",
         "c1": [0x00, 0x00, 0x00, 0x00],
         "c2": [0xFF, 0xFF, 0xFF, 0xFF],
         "pixels": [(0, 0, 0, 0)] * NUM_LEDS,
@@ -282,17 +282,19 @@ TESTS = [
 
 def main():
     print("=" * 68)
-    print("  TM1815B Forwarding Test — 8-Bit Encoding")
+    print("  TM1815B Forwarding Test — 10-Bit Encoding @ 4.0 MHz")
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
-    print("  Previous result: 4-bit encoding only works at 2.0 MHz (PCB1 only)")
+    print("  Pi 5 SPI only works cleanly at 2.0/4.0 MHz.")
+    print("  4-bit/8-bit encodings give 0 LOW=500ns (below 620ns spec)")
+    print("  so forwarding fails.")
     print()
-    print("  NEW: 8-bit encoding (1 SPI byte = 1 data bit)")
-    print("    Logic 0: 0x3F = 00111111 → short LOW + long HIGH")
-    print("    Logic 1: 0x07 = 00000111 → long LOW + short HIGH")
-    print("    At 3.2 MHz: 0 LOW=625ns  1 LOW=1562ns  period=2500ns")
-    print("    All timing within TM1815B spec!")
+    print("  10-bit encoding at 4.0 MHz:")
+    print("    Logic 0: 3 LOW + 7 HIGH → 0 LOW = 750ns  (in spec)")
+    print("    Logic 1: 6 LOW + 4 HIGH → 1 LOW = 1500ns (in spec)")
+    print("    Bit period = 2500ns = 400 KHz (matches datasheet)")
     print()
+    print("  C2 = bitwise NOT of C1 (validated before each test)")
     print("  Press Enter to START each test, Enter again to STOP.")
     print("=" * 68)
 
@@ -304,7 +306,7 @@ def main():
         c2 = test["c2"]
         pixels = test["pixels"]
         speed = test["speed"]
-        encoding = test.get("encoding", "8bit")
+        encoding = test.get("encoding", "10bit")
         reset = test.get("reset", 80)
 
         for j in range(4):
@@ -314,31 +316,39 @@ def main():
                       f"(expected 0x{c1[j] ^ 0xFF:02X}) ***")
                 sys.exit(1)
 
-        lut = LUT_8BIT if encoding == "8bit" else LUT_4BIT
-        bits_per = 8 if encoding == "8bit" else 4
-        t0_ns = int(1e9 / speed * (2 if encoding == "8bit" else 1))
-        t1_ns = int(1e9 / speed * (5 if encoding == "8bit" else 3))
+        if encoding == "10bit":
+            lut = LUT_10BIT
+        elif encoding == "8bit":
+            raise ValueError("8-bit encoding removed — use 10-bit")
+        else:
+            lut = LUT_4BIT
+
+        if encoding == "10bit":
+            t0_ns = int(1e9 / speed * 3)
+            t1_ns = int(1e9 / speed * 6)
+            bits_per = 10
+        else:
+            t0_ns = int(1e9 / speed * 1)
+            t1_ns = int(1e9 / speed * 3)
+            bits_per = 4
 
         print(f"\n  [{i}/{len(TESTS)}] {test['name']}")
         print(f"         Encoding: {bits_per}-bit | SPI: {speed/1e6:.1f} MHz | "
               f"0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
-        frame_bytes = len(build_frame(c1, c2, pixels, lut, reset))
-        print(f"         Frame: {frame_bytes} bytes | "
-              f"C2 == ~C1: verified")
+        frame = build_frame(c1, c2, pixels, lut, reset)
+        print(f"         Frame: {len(frame)} bytes | C2 == ~C1: verified")
         print_test_info(c1, c2, pixels)
 
         input("         Press Enter to start...")
 
-        buf = build_frame(c1, c2, pixels, lut, reset_bytes=reset)
-        frames = run_test(list(buf), speed)
+        frames = run_test(list(frame), speed)
         print(f"         Sent {frames} frames")
 
     print("\n  Done. Key questions:")
-    print("    1. Did 8-bit @ 3.2 MHz make PCB1 respond? (Section 1)")
+    print("    1. Did 10-bit @ 4.0 MHz make PCB1 respond? (Section 1)")
     print("    2. Did PCBs 2-4 respond? (FORWARDING!)")
-    print("    3. Which 8-bit speeds worked? (Section 2)")
-    print("    4. Could each PCB be addressed individually? (Section 4)")
-    print("    5. Did the 4-bit baseline still work for PCB1? (Section 5)")
+    print("    3. Could each PCB be addressed individually? (Section 2)")
+    print("    4. Did the 4-bit baseline still work for PCB1? (Section 5)")
 
 
 if __name__ == "__main__":
