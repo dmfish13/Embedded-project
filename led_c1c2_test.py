@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 """
-C1/C2 forwarding test — finds the SPI speed and C1/C2 values that
-enable downstream TM1815B chips to receive forwarded data.
+C1/C2 forwarding test — uses 8-bit encoding at 3.2 MHz to achieve
+in-spec TM1815B timing with byte-aligned data bits.
 
-Per the TM1815B datasheet:
-  - Frame: [Reset][C1][C2][D1][D2]...[Dn][Reset]
-  - C1 (32 bits): constant-current setting, bits 7,6 of each byte = 0
-  - C2 (32 bits): must be bitwise NOT of C1
-  - D(n) (32 bits): PWM data for LED PCB n (W, R, G, B — 8 bits each)
-  - After receiving C1, chip forwards C1 on DO while receiving C2
-  - Each chip keeps its first D packet, forwards the rest
-  - Logic 0 LOW time: 620-820 ns (2.0 MHz gives 500ns = OUT OF SPEC)
-  - Logic 1 LOW time: 1300-2000 ns
-  - Reset: HIGH >= 200 us
+Previous findings:
+  - 4-bit encoding at 2.0 MHz: PCB1 works, PCBs 2-4 don't forward
+    (logic 0 LOW = 500ns, below 620ns spec)
+  - 4-bit encoding at 1.6 MHz: NOTHING works, even PCB1 freezes
+    (Pi 5 SPI issue at non-2.0 MHz speeds)
+
+New approach — 8-bit encoding (1 SPI byte per data bit):
+  Logic 0: 0x3F = 00111111 → 2 LOW bits + 6 HIGH bits
+  Logic 1: 0x07 = 00000111 → 5 LOW bits + 3 HIGH bits
+
+  At 3.2 MHz SPI:
+    Logic 0 LOW = 2 × 312.5ns = 625ns  (in 620-820ns spec)
+    Logic 1 LOW = 5 × 312.5ns = 1562ns (in 1300-2000ns spec)
+    Bit period  = 8 × 312.5ns = 2500ns (exactly 400 KHz)
+
+  Each data bit = 1 SPI byte → inter-byte gaps fall between
+  data bits (in HIGH region), not within them.
 
 Setup: Pi → SN74AHCT125N → PCB1 → PCB2 → PCB3 → PCB4
        (10kΩ pull-up on GPIO 20 to 3.3V)
@@ -28,7 +35,9 @@ from spidev import SpiDev
 NUM_LEDS = 4
 
 
-def encode_byte(value):
+# === 4-bit encoding (original, works at 2.0 MHz for PCB1 only) ===
+
+def encode_byte_4bit(value):
     encoded = 0
     for bit_pos in range(7, -1, -1):
         if value & (1 << bit_pos):
@@ -41,24 +50,34 @@ def encode_byte(value):
     ])
 
 
-LUT = [encode_byte(v) for v in range(256)]
+LUT_4BIT = [encode_byte_4bit(v) for v in range(256)]
 
 
-def build_frame(c1_bytes, c2_bytes, pixels, reset_bytes=80):
-    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]
+# === 8-bit encoding (new, 1 SPI byte per data bit) ===
 
-    c1_bytes: list of 4 bytes [W, R, G, B] (bits 7,6 must be 0)
-    c2_bytes: list of 4 bytes [W, R, G, B] (must be ~C1)
-    pixels:   list of (W, R, G, B) tuples, one per LED PCB
-    reset_bytes: number of 0xFF bytes for reset period
-    """
+def encode_byte_8bit(value):
+    result = bytearray(8)
+    for i in range(8):
+        bit_pos = 7 - i
+        if value & (1 << bit_pos):
+            result[i] = 0x07
+        else:
+            result[i] = 0x3F
+    return bytes(result)
+
+
+LUT_8BIT = [encode_byte_8bit(v) for v in range(256)]
+
+
+def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
+    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]"""
     buf = bytearray(b'\xFF' * reset_bytes)
     for bv in c1_bytes:
-        buf += LUT[bv]
+        buf += lut[bv]
     for bv in c2_bytes:
-        buf += LUT[bv]
+        buf += lut[bv]
     for w, r, g, b in pixels:
-        buf += LUT[w] + LUT[r] + LUT[g] + LUT[b]
+        buf += lut[w] + lut[r] + lut[g] + lut[b]
     buf += b'\xFF' * reset_bytes
     return buf
 
@@ -68,12 +87,15 @@ def run_test(buf_list, spi_speed):
     spi = SpiDev()
     spi.open(1, 0)
     spi.max_speed_hz = spi_speed
+    actual = spi.max_speed_hz
     spi.mode = 0b00
     spi.lsbfirst = False
 
     frame_count = 0
     running = True
 
+    print(f"         Requested {spi_speed/1e6:.1f} MHz, "
+          f"actual {actual/1e6:.3f} MHz")
     print("         Sending... Press Enter to stop.")
     sys.stdout.flush()
 
@@ -108,172 +130,136 @@ def print_test_info(c1, c2, pixels):
               f"D{i}: {fmt_d(px)}")
 
 
+UNIQUE = [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)]
+
 TESTS = [
     # =================================================================
-    # SECTION 1: SPI speed comparison — same frame, different speeds
-    # At 1.6 MHz: logic 0 LOW = 625ns (in spec: 620-820ns)
-    # At 2.0 MHz: logic 0 LOW = 500ns (OUT OF SPEC: < 620ns min)
-    # If forwarding works at 1.6 but not 2.0, timing is the issue.
+    # SECTION 1: 8-bit encoding — the main test
+    # 3.2 MHz SPI × 8 bits/data-bit = 400 KHz data rate
+    # Logic 0 LOW = 625ns, Logic 1 LOW = 1562ns — both in spec
     # =================================================================
     {
-        "section": "\n  === SECTION 1: Speed comparison (unique colors per PCB) ===",
-        "name": "1.6 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
-        "speed": 1_600_000,
+        "section": "\n  === SECTION 1: 8-bit encoding @ 3.2 MHz (all timing in spec) ===",
+        "name": "8-bit 3.2 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+        "pixels": UNIQUE,
     },
     {
-        "name": "2.0 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
-        "speed": 2_000_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-    },
-    {
-        "name": "1.8 MHz — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE",
-        "speed": 1_800_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-    },
-
-    # =================================================================
-    # SECTION 2: C1 current values at 1.6 MHz
-    # Tests if a specific current value is needed for forwarding.
-    # All use unique colors to verify each PCB gets its own data.
-    # =================================================================
-    {
-        "section": "\n  === SECTION 2: C1 current values @ 1.6 MHz ===",
-        "name": "Current=0 (minimum 6.5mA) — unique colors",
-        "speed": 1_600_000,
-        "c1": [0x00, 0x00, 0x00, 0x00],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-    },
-    {
-        "name": "Current=30 (0x1E, ~19mA) — unique colors",
-        "speed": 1_600_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-    },
-    {
-        "name": "Current=63 (0x3F, maximum 38mA) — unique colors",
-        "speed": 1_600_000,
-        "c1": [0x3F, 0x3F, 0x3F, 0x3F],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-    },
-
-    # =================================================================
-    # SECTION 3: Reset length at 1.6 MHz
-    # Datasheet says reset >= 200us. At 1.6 MHz, 80 bytes = 400us.
-    # Also: inter-byte HIGH must NOT exceed 126us or chip resets.
-    # =================================================================
-    {
-        "section": "\n  === SECTION 3: Reset length @ 1.6 MHz, current=30 ===",
-        "name": "Reset=40 bytes (200us) — minimum per datasheet",
-        "speed": 1_600_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-        "reset": 40,
-    },
-    {
-        "name": "Reset=80 bytes (400us) — standard",
-        "speed": 1_600_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-        "reset": 80,
-    },
-    {
-        "name": "Reset=200 bytes (1ms)",
-        "speed": 1_600_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-        "reset": 200,
-    },
-
-    # =================================================================
-    # SECTION 4: All same color at 1.6 MHz
-    # If all PCBs show the same color, forwarding works but we can't
-    # distinguish addressing. Use as a simpler forwarding check.
-    # =================================================================
-    {
-        "section": "\n  === SECTION 4: All same color @ 1.6 MHz, current=30 ===",
-        "name": "All RED",
-        "speed": 1_600_000,
+        "name": "8-bit 3.2 MHz — All RED",
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "pixels": [(0, 255, 0, 0)] * NUM_LEDS,
     },
     {
-        "name": "All GREEN",
-        "speed": 1_600_000,
+        "name": "8-bit 3.2 MHz — All GREEN",
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "pixels": [(0, 0, 255, 0)] * NUM_LEDS,
     },
+
+    # =================================================================
+    # SECTION 2: 8-bit encoding speed variations
+    # Try nearby SPI speeds that also give in-spec timing
+    # =================================================================
     {
-        "name": "All BLUE",
-        "speed": 1_600_000,
+        "section": "\n  === SECTION 2: 8-bit encoding at other speeds ===",
+        "name": "8-bit 2.8 MHz — unique colors (0 LOW=714ns, 1 LOW=1786ns)",
+        "speed": 2_800_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 0, 0, 255)] * NUM_LEDS,
+        "pixels": UNIQUE,
+    },
+    {
+        "name": "8-bit 2.4 MHz — unique colors (0 LOW=833ns, 1 LOW=2083ns)",
+        "speed": 2_400_000,
+        "encoding": "8bit",
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": UNIQUE,
+    },
+    {
+        "name": "8-bit 4.0 MHz — unique colors (0 LOW=500ns OUT OF SPEC)",
+        "speed": 4_000_000,
+        "encoding": "8bit",
+        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "pixels": UNIQUE,
     },
 
     # =================================================================
-    # SECTION 5: Individual PCB addressing at 1.6 MHz
-    # Only one PCB lit at a time — confirms forwarding reaches each.
+    # SECTION 3: 8-bit encoding C1 current values @ 3.2 MHz
     # =================================================================
     {
-        "section": "\n  === SECTION 5: One PCB at a time @ 1.6 MHz, current=30 ===",
+        "section": "\n  === SECTION 3: 8-bit 3.2 MHz — C1 current values ===",
+        "name": "Current=0 (minimum 6.5mA)",
+        "speed": 3_200_000,
+        "encoding": "8bit",
+        "c1": [0x00, 0x00, 0x00, 0x00],
+        "pixels": UNIQUE,
+    },
+    {
+        "name": "Current=63 (0x3F, maximum 38mA)",
+        "speed": 3_200_000,
+        "encoding": "8bit",
+        "c1": [0x3F, 0x3F, 0x3F, 0x3F],
+        "pixels": UNIQUE,
+    },
+
+    # =================================================================
+    # SECTION 4: Individual PCB addressing @ 3.2 MHz 8-bit
+    # =================================================================
+    {
+        "section": "\n  === SECTION 4: 8-bit 3.2 MHz — one PCB at a time ===",
         "name": "Only PCB1 = RED",
-        "speed": 1_600_000,
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "pixels": [(0, 255, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
         "name": "Only PCB2 = GREEN",
-        "speed": 1_600_000,
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "pixels": [(0, 0, 0, 0), (0, 0, 255, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
         "name": "Only PCB3 = BLUE",
-        "speed": 1_600_000,
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 255), (0, 0, 0, 0)],
     },
     {
         "name": "Only PCB4 = WHITE",
-        "speed": 1_600_000,
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
         "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (255, 0, 0, 0)],
     },
 
     # =================================================================
-    # SECTION 6: Fine speed sweep around the spec boundary
-    # Logic 0 LOW must be 620-820ns. Find the fastest working speed.
+    # SECTION 5: Baseline — 4-bit encoding at 2.0 MHz (known: PCB1 only)
     # =================================================================
     {
-        "section": "\n  === SECTION 6: Fine speed sweep (unique colors) ===",
-        "name": "1.4 MHz (logic 0 LOW = 714ns)",
-        "speed": 1_400_000,
+        "section": "\n  === SECTION 5: 4-bit encoding @ 2.0 MHz (baseline) ===",
+        "name": "4-bit 2.0 MHz — unique colors (PCB1 should work)",
+        "speed": 2_000_000,
+        "encoding": "4bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-    },
-    {
-        "name": "1.6 MHz (logic 0 LOW = 625ns)",
-        "speed": 1_600_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
-    },
-    {
-        "name": "1.7 MHz (logic 0 LOW = 588ns — below 620ns spec)",
-        "speed": 1_700_000,
-        "c1": [0x1E, 0x1E, 0x1E, 0x1E],
-        "pixels": [(0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255), (255, 0, 0, 0)],
+        "pixels": UNIQUE,
     },
 
     # =================================================================
-    # SECTION 7: All off (baseline)
+    # SECTION 6: All off
     # =================================================================
     {
-        "section": "\n  === SECTION 7: All off ===",
-        "name": "All off @ 1.6 MHz",
-        "speed": 1_600_000,
+        "section": "\n  === SECTION 6: All off ===",
+        "name": "8-bit 3.2 MHz — all off",
+        "speed": 3_200_000,
+        "encoding": "8bit",
         "c1": [0x00, 0x00, 0x00, 0x00],
         "pixels": [(0, 0, 0, 0)] * NUM_LEDS,
     },
@@ -281,20 +267,20 @@ TESTS = [
 
 
 def main():
-    print("=" * 66)
-    print("  TM1815B C1/C2 Forwarding Test")
-    print(f"  {NUM_LEDS} PCBs daisy-chained: PCB1 → PCB2 → PCB3 → PCB4")
+    print("=" * 68)
+    print("  TM1815B Forwarding Test — 8-Bit Encoding")
+    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
-    print("  Datasheet timing requirements:")
-    print("    Logic 0 LOW: 620-820 ns    Logic 1 LOW: 1300-2000 ns")
-    print("    At 1.6 MHz SPI: 0=625ns, 1=1875ns  (BOTH IN SPEC)")
-    print("    At 2.0 MHz SPI: 0=500ns, 1=1500ns  (0 OUT OF SPEC)")
+    print("  Previous result: 4-bit encoding only works at 2.0 MHz (PCB1 only)")
     print()
-    print("  Frame: [Reset 0xFF] [C1] [C2] [D1] [D2] [D3] [D4] [Reset 0xFF]")
-    print("  C2 = bitwise NOT of C1")
+    print("  NEW: 8-bit encoding (1 SPI byte = 1 data bit)")
+    print("    Logic 0: 0x3F = 00111111 → short LOW + long HIGH")
+    print("    Logic 1: 0x07 = 00000111 → long LOW + short HIGH")
+    print("    At 3.2 MHz: 0 LOW=625ns  1 LOW=1562ns  period=2500ns")
+    print("    All timing within TM1815B spec!")
     print()
     print("  Press Enter to START each test, Enter again to STOP.")
-    print("=" * 66)
+    print("=" * 68)
 
     for i, test in enumerate(TESTS, 1):
         if "section" in test:
@@ -304,27 +290,33 @@ def main():
         c2 = [b ^ 0xFF for b in c1]
         pixels = test["pixels"]
         speed = test["speed"]
+        encoding = test.get("encoding", "8bit")
         reset = test.get("reset", 80)
-        t0_ns = int(1e9 / speed)
+
+        lut = LUT_8BIT if encoding == "8bit" else LUT_4BIT
+        bits_per = 8 if encoding == "8bit" else 4
+        t0_ns = int(1e9 / speed * (2 if encoding == "8bit" else 1))
+        t1_ns = int(1e9 / speed * (5 if encoding == "8bit" else 3))
 
         print(f"\n  [{i}/{len(TESTS)}] {test['name']}")
-        print(f"         SPI: {speed/1e6:.1f} MHz | "
-              f"Logic 0 LOW: {t0_ns}ns | "
-              f"Reset: {reset} bytes")
+        print(f"         Encoding: {bits_per}-bit | SPI: {speed/1e6:.1f} MHz | "
+              f"0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
+        frame_bytes = len(build_frame(c1, c2, pixels, lut, reset))
+        print(f"         Frame: {frame_bytes} bytes")
         print_test_info(c1, c2, pixels)
 
         input("         Press Enter to start...")
 
-        buf = build_frame(c1, c2, pixels, reset_bytes=reset)
+        buf = build_frame(c1, c2, pixels, lut, reset_bytes=reset)
         frames = run_test(list(buf), speed)
         print(f"         Sent {frames} frames")
 
     print("\n  Done. Key questions:")
-    print("    1. Did any speed make PCBs 2-4 respond? (Section 1)")
-    print("    2. Did current value matter for forwarding? (Section 2)")
-    print("    3. Did reset length affect behavior? (Section 3)")
-    print("    4. At the working speed, did each PCB show its own color? (Sec 4-5)")
-    print("    5. What is the fastest speed that still forwards? (Section 6)")
+    print("    1. Did 8-bit @ 3.2 MHz make PCB1 respond? (Section 1)")
+    print("    2. Did PCBs 2-4 respond? (FORWARDING!)")
+    print("    3. Which 8-bit speeds worked? (Section 2)")
+    print("    4. Could each PCB be addressed individually? (Section 4)")
+    print("    5. Did the 4-bit baseline still work for PCB1? (Section 5)")
 
 
 if __name__ == "__main__":
