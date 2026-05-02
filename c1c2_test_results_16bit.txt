@@ -1,0 +1,115 @@
+C1/C2 Forwarding Test Results — 16-Bit Encoding @ 4.0 MHz
+==========================================================
+Setup: Pi → SN74AHCT125N → PCB1 → PCB2 → PCB3 → PCB4
+SPI speed: 4.0 MHz (Section 4: 2.0 MHz), 10kΩ pull-up on GPIO 20
+
+16-bit encoding: 2 SPI bytes per data bit
+  Logic 0: 0x1F + 0xFF → 750ns LOW (spec: 620-820ns)
+  Logic 1: 0x03 + 0xFF → 1500ns LOW (spec: 1300-2000ns)
+  Period: 4µs = 250 KHz (spec: 200-400 KHz)
+  LOW pulse entirely in byte 1, byte 2 always 0xFF.
+  Inter-byte gaps ONLY at HIGH→HIGH transitions.
+
+Reset: 125 bytes = 250µs (spec: >= 200µs)
+C2 = bitwise NOT of C1 (validated by script)
+
+For each test, record what you see on PCB1 and PCBs 2-4.
+"cycling" = demo mode color preset cycle.
+
+
+=== SECTION 1: 16-bit @ 4.0 MHz (gap-safe, in-spec) ===
+
+Test 1: Unique colors — PCB1=RED, PCB2=GREEN, PCB3=BLUE, PCB4=WHITE
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1: W=0 R=255 G=0 B=0 | D2: W=0 R=0 G=255 B=0
+  D3: W=0 R=0 G=0 B=255 | D4: W=255 R=0 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 2: All RED
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1-D4: W=0 R=255 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 3: All GREEN
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1-D4: W=0 R=0 G=255 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 4: All BLUE
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1-D4: W=0 R=0 G=0 B=255
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 2: 16-bit 4.0 MHz — one PCB at a time ===
+
+Test 5: Only PCB1 = RED (PCBs 2-4 = off)
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1: W=0 R=255 G=0 B=0 | D2-D4: all zeros
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 6: Only PCB2 = GREEN (others = off)
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1: off | D2: W=0 R=0 G=255 B=0 | D3-D4: off
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 7: Only PCB3 = BLUE (others = off)
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1-D2: off | D3: W=0 R=0 G=0 B=255 | D4: off
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 8: Only PCB4 = WHITE (others = off)
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1-D3: off | D4: W=255 R=0 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 3: 16-bit 4.0 MHz — C1 current values ===
+
+Test 9: Current=0 (minimum 6.5mA) — unique colors
+  C1=[0x00,0x00,0x00,0x00]  C2=[0xFF,0xFF,0xFF,0xFF]
+  D1: RED | D2: GREEN | D3: BLUE | D4: WHITE
+  PCB1 result:
+  PCBs 2-4 result:
+
+Test 10: Current=63 (0x3F, maximum 38mA) — unique colors
+  C1=[0x3F,0x3F,0x3F,0x3F]  C2=[0xC0,0xC0,0xC0,0xC0]
+  D1: RED | D2: GREEN | D3: BLUE | D4: WHITE
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 4: 4-bit @ 2.0 MHz baseline ===
+
+Test 11: 4-bit 2.0 MHz — unique colors (PCB1 should work)
+  C1=[0x1E,0x1E,0x1E,0x1E]  C2=[0xE1,0xE1,0xE1,0xE1]
+  D1: RED | D2: GREEN | D3: BLUE | D4: WHITE
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SECTION 5: All off ===
+
+Test 12: 16-bit 4.0 MHz — all off
+  C1=[0x00,0x00,0x00,0x00]  C2=[0xFF,0xFF,0xFF,0xFF]
+  D1-D4: W=0 R=0 G=0 B=0
+  PCB1 result:
+  PCBs 2-4 result:
+
+
+=== SUMMARY ===
+
+Did 16-bit @ 4.0 MHz make PCB1 respond? (Tests 1-4)
+Did PCBs 2-4 respond? (FORWARDING!)
+Could each PCB be addressed individually? (Tests 5-8)
+Did C1 current values affect brightness? (Tests 9-10)
+Did 4-bit baseline still work for PCB1? (Test 11)
+Any other observations:
