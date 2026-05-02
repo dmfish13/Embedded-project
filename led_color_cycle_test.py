@@ -101,18 +101,6 @@ def build_all_bufs():
     return bufs
 
 
-def getch():
-    """Read a single character from stdin without echo."""
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
-        ch = sys.stdin.read(1)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
-    return ch
-
-
 def main():
     print("=" * 68)
     print("  PCB1 Color Selector — press a key to switch color")
@@ -152,15 +140,14 @@ def main():
 
     print(f"\n  SPI: requested {SPEED/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
 
-    current_key = 'p'
-    current_buf = bufs['p']
+    # Mutable container so the SPI thread always sees updates
+    state = {'buf': bufs['p'], 'running': True}
     lock = threading.Lock()
-    running = True
 
     def spi_loop():
-        while running:
+        while state['running']:
             with lock:
-                buf = current_buf
+                buf = state['buf']
             spi.xfer2(buf)
 
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
@@ -169,18 +156,23 @@ def main():
     print(f"  Active: Off")
     print(f"  Press a key to select a color...\n")
 
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
     try:
+        tty.setraw(fd)
         while True:
-            ch = getch()
+            ch = sys.stdin.read(1)
             if ch == '\x03':
                 break
             if ch in valid_keys:
                 with lock:
-                    current_buf = bufs[ch]
-                current_key = ch
-                print(f"  → {key_to_name[ch]}")
+                    state['buf'] = bufs[ch]
+                # Raw mode needs \r\n for proper line breaks
+                sys.stdout.write(f"  → {key_to_name[ch]}\r\n")
+                sys.stdout.flush()
     finally:
-        running = False
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        state['running'] = False
         spi_thread.join(timeout=1)
         spi.close()
         print("\n  Stopped.")
