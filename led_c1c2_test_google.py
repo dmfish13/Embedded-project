@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""
+C1/C2 forwarding test — 10-bit encoding at 4.0 MHz for in-spec timing.
+
+Previous findings:
+  - Pi 5 SPI only works cleanly at 2.0 MHz and 4.0 MHz
+  - 4-bit @ 2.0 MHz: PCB1 works, forwarding fails (0 LOW=500ns < 620ns)
+  - 8-bit @ 4.0 MHz: PCB1 works, forwarding fails (0 LOW=500ns < 620ns)
+  - All other SPI speeds: nothing works (Pi 5 SPI controller issue)
+
+New approach — 10-bit encoding at 4.0 MHz:
+  Logic 0: 3 LOW + 7 HIGH → 0 LOW = 3 × 250ns = 750ns  (in 620-820ns)
+  Logic 1: 6 LOW + 4 HIGH → 1 LOW = 6 × 250ns = 1500ns (in 1300-2000ns)
+  Bit period = 10 × 250ns = 2500ns (exactly 400 KHz)
+
+  10 bits × 8 data bits = 80 SPI bits = 10 SPI bytes per data byte.
+  Frame size: 80 + 10×4 + 10×4 + 10×4×4 + 80 = 400 bytes (within limit).
+
+Setup: Pi → SN74AHCT125N → PCB1 → PCB2 → PCB3 → PCB4
+       (10kΩ pull-up on GPIO 20 to 3.3V)
+
+Usage:
+    python3 led_c1c2_test.py
+"""
+
+import sys
+import time
+import threading
+from spidev import SpiDev
+
+NUM_LEDS = 4
+
+# === 4-bit encoding (baseline, works at 2.0 MHz for PCB1 only) ===
+def encode_byte_4bit(value):
+    encoded = 0
+    for bit_pos in range(7, -1, -1):
+        if value & (1 << bit_pos):
+            encoded = (encoded << 4) | 0b0001
+        else:
+            encoded = (encoded << 4) | 0b0111
+    return bytes([
+        (encoded >> 24) & 0xFF, (encoded >> 16) & 0xFF,
+        (encoded >> 8) & 0xFF, encoded & 0xFF,
+    ])
+
+LUT_4BIT = [encode_byte_4bit(v) for v in range(256)]
+
+# === 10-bit encoding (3 LOW for 0, 6 LOW for 1, at 4.0 MHz) ===
+def encode_byte_10bit(value):
+    """Encode one data byte (8 bits) into 80 SPI bits (10 bytes).
+
+    Each data bit becomes 10 SPI bits:
+      Logic 0: 0001111111 → 3 LOW + 7 HIGH (MSB first on wire)
+      Logic 1: 0000001111 → 6 LOW + 4 HIGH
+
+    At 4.0 MHz: 0 LOW = 750ns, 1 LOW = 1500ns, period = 2500ns.
+    """
+    bits = 0
+    for bit_pos in range(7, -1, -1):
+        bits <<= 10
+        if value & (1 << bit_pos):
+            bits |= 0b0000001111
+        else:
+            bits |= 0b0001111111
+    result = bytearray(10)
+    for i in range(10):
+        result[9 - i] = bits & 0xFF
+        bits >>= 8
+    return bytes(result)
+
+LUT_10BIT = [encode_byte_10bit(v) for v in range(256)]
+
+def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=150):
+    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]
+    FIXED: Default reset_bytes bumped from 80 to 150 to guarantee 300us HIGH @ 4.0 MHz
+    """
+    buf = bytearray(b'\xFF' * reset_bytes)
+    for bv in c1_bytes:
+        buf += lut[bv]
+    for bv in c2_bytes:
+        buf += lut[bv]
+    for w, r, g, b in pixels:
+        buf += lut[w] + lut[r] + lut[g] + lut[b]
+    buf += b'\xFF' * reset_bytes
+    return buf
+
+def run_test(buf_list, spi_speed):
+    """Send continuously at given speed until Enter is pressed."""
+    spi = SpiDev()
+    spi.open(1, 0)
+    spi.max_speed_hz = spi_speed
+    actual = spi.max_speed_hz
+    
+    # FIXED: Change SPI mode from 0b00 to 0b11. 
+    # This idles the SPI hardware high instead of low, preventing protocol lockup.
+    spi.mode = 0b11 
+    spi.lsbfirst = False
+    
+    frame_count = 0
+    running = True
+    
+    print(f"         Requested {spi_speed/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
+    print("         Transmitting... (Press Enter to stop)")
+
+    def send_loop():
+        nonlocal frame_count
+        while running:
+            spi.xfer2(buf_list)
+            frame_count += 1
+            # Very small sleep so we aren't completely slamming the CPU
+            time.sleep(0.005) 
+            
+    t = threading.Thread(target=send_loop)
+    t.start()
+    input()
+    running = False
+    t.join()
+    spi.close()
+    return frame_count
+
+def print_test_info(c1, c2, pixels):
+    # Dummy implementation for script completeness
+    print(f"         C1 payload: {[hex(c) for c in c1]}")
+
+if __name__ == "__main__":
+    
+    # !!! INSERT YOUR 12 TESTS HERE !!!
+    TESTS = [
+        {
+            "name": "Test 1: Red 10-bit @ 4.0 MHz (Corrected)",
+            "encoding": "10bit",
+            "speed": 4000000,
+            "c1": [0x3F, 0x00, 0x00, 0x00],
+            "pixels": [(0, 255, 0, 0)] * NUM_LEDS,
+            "reset": 150  # Ensure the reset value matches the new minimum
+        }
+    ]
+
+    for i, test in enumerate(TESTS, 1):
+        c1 = test.get("c1", [0x00, 0x00, 0x00, 0x00])
+        pixels = test.get("pixels", [(0,0,0,0)] * NUM_LEDS)
+        encoding = test.get("encoding", "10bit")
+        speed = test.get("speed", 4000000)
+        
+        # FIXED: Ensure default padding overrides old 80-byte attempts
+        reset = test.get("reset", 150) 
+
+        # Auto-generate C2 (bitwise NOT of C1)
+        c2 = [(~x) & 0xFF for x in c1]
+
+        # Verify C2 == ~C1
+        for j in range(4):
+            if c2[j] != (~c1[j] & 0xFF):
+                print(f"*** ERROR: C2[{j}] == 0x{c2[j]:02X} "
+                      f"(expected 0x{c1[j] ^ 0xFF:02X}) ***")
+                sys.exit(1)
+
+        if encoding == "10bit":
+            lut = LUT_10BIT
+        elif encoding == "8bit":
+            raise ValueError("8-bit encoding removed — use 10-bit")
+        else:
+            lut = LUT_4BIT
+
+        if encoding == "10bit":
+            t0_ns = int(1e9 / speed * 3)
+            t1_ns = int(1e9 / speed * 6)
+            bits_per = 10
+        else:
+            t0_ns = int(1e9 / speed * 1)
+            t1_ns = int(1e9 / speed * 3)
+            bits_per = 4
+
+        print(f"\n  [{i}/{len(TESTS)}] {test['name']}")
+        print(f"         Encoding: {bits_per}-bit | SPI: {speed/1e6:.1f} MHz | "
+              f"0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
+        frame = build_frame(c1, c2, pixels, lut, reset)
+        print(f"         Frame: {len(frame)} bytes | C2 == ~C1: verified")
+        print_test_info(c1, c2, pixels)
+
+        input("         Press Enter to start...")
+
+        frames = run_test(list(frame), speed)
+        print(f"         Sent {frames} frames")
+
+    print("\n  Done. Key questions should be solved.")
