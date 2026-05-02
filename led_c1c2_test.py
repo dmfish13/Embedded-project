@@ -144,6 +144,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": UNIQUE,
     },
     {
@@ -151,6 +152,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 255, 0, 0)] * NUM_LEDS,
     },
     {
@@ -158,6 +160,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 255, 0)] * NUM_LEDS,
     },
 
@@ -171,6 +174,7 @@ TESTS = [
         "speed": 2_800_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": UNIQUE,
     },
     {
@@ -178,6 +182,7 @@ TESTS = [
         "speed": 2_400_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": UNIQUE,
     },
     {
@@ -185,6 +190,7 @@ TESTS = [
         "speed": 4_000_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": UNIQUE,
     },
 
@@ -197,6 +203,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x00, 0x00, 0x00, 0x00],
+        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
         "pixels": UNIQUE,
     },
     {
@@ -204,6 +211,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x3F, 0x3F, 0x3F, 0x3F],
+        "c2": [0xC0, 0xC0, 0xC0, 0xC0],
         "pixels": UNIQUE,
     },
 
@@ -216,6 +224,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 255, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
@@ -223,6 +232,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 0, 0), (0, 0, 255, 0), (0, 0, 0, 0), (0, 0, 0, 0)],
     },
     {
@@ -230,6 +240,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 255), (0, 0, 0, 0)],
     },
     {
@@ -237,6 +248,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (255, 0, 0, 0)],
     },
 
@@ -249,6 +261,7 @@ TESTS = [
         "speed": 2_000_000,
         "encoding": "4bit",
         "c1": [0x1E, 0x1E, 0x1E, 0x1E],
+        "c2": [0xE1, 0xE1, 0xE1, 0xE1],
         "pixels": UNIQUE,
     },
 
@@ -261,6 +274,7 @@ TESTS = [
         "speed": 3_200_000,
         "encoding": "8bit",
         "c1": [0x00, 0x00, 0x00, 0x00],
+        "c2": [0xFF, 0xFF, 0xFF, 0xFF],
         "pixels": [(0, 0, 0, 0)] * NUM_LEDS,
     },
 ]
@@ -287,11 +301,18 @@ def main():
             print(test["section"])
 
         c1 = test["c1"]
-        c2 = [b ^ 0xFF for b in c1]
+        c2 = test["c2"]
         pixels = test["pixels"]
         speed = test["speed"]
         encoding = test.get("encoding", "8bit")
         reset = test.get("reset", 80)
+
+        for j in range(4):
+            if c2[j] != (c1[j] ^ 0xFF):
+                print(f"  *** ERROR: C2[{j}]=0x{c2[j]:02X} is NOT "
+                      f"~C1[{j}]=0x{c1[j]:02X} "
+                      f"(expected 0x{c1[j] ^ 0xFF:02X}) ***")
+                sys.exit(1)
 
         lut = LUT_8BIT if encoding == "8bit" else LUT_4BIT
         bits_per = 8 if encoding == "8bit" else 4
@@ -302,7 +323,8 @@ def main():
         print(f"         Encoding: {bits_per}-bit | SPI: {speed/1e6:.1f} MHz | "
               f"0 LOW: {t0_ns}ns | 1 LOW: {t1_ns}ns")
         frame_bytes = len(build_frame(c1, c2, pixels, lut, reset))
-        print(f"         Frame: {frame_bytes} bytes")
+        print(f"         Frame: {frame_bytes} bytes | "
+              f"C2 == ~C1: verified")
         print_test_info(c1, c2, pixels)
 
         input("         Press Enter to start...")
