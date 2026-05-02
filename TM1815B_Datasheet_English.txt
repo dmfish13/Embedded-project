@@ -1,0 +1,399 @@
+================================================================================
+TM1815B — 4-Channel LED Constant-Current Driver IC
+Titan Micro Electronics | www.titanmec.com | V1.2
+English Translation
+================================================================================
+
+--------------------------------------------------------------------------------
+I. OVERVIEW
+--------------------------------------------------------------------------------
+
+The TM1815B is a 4-channel adjustable constant-current LED driver IC. An MCU
+can send constant-current and PWM configuration data to the TM1815B to achieve
+a wide variety of display effects. The chip integrates an MCU digital interface,
+data latches, and LED constant-current drive circuitry. The VDD pin has an
+internal 5V Zener diode, minimizing external components. Suitable for guardrail
+tubes, point light sources, and other LED decorative products. Excellent
+performance and reliable quality.
+
+
+--------------------------------------------------------------------------------
+II. FEATURES
+--------------------------------------------------------------------------------
+
+  - Power CMOS process
+  - OUT output ports rated to 32V
+  - VDD has built-in 5V Zener; supports 6-24V input with series resistor
+  - Constant current adjustable in 64 steps (6.5mA - 38mA)
+  - PWM brightness control with 256 levels
+  - Accurate current output:
+      Channel-to-channel max error: +/-3%
+      Chip-to-chip max error:       +/-5%
+  - Single-wire serial daisy-chain interface
+  - Oscillation: Internal RC oscillator with clock synchronization to data line
+    signal. After receiving its own data, the chip automatically regenerates and
+    forwards subsequent data through the data output — no signal distortion or
+    attenuation over long chains.
+  - Built-in power-on reset; all registers initialize to zero on power-up
+  - Data transfer rate: 400 KHz
+  - Package: SOP8
+
+
+--------------------------------------------------------------------------------
+III. INTERNAL BLOCK DIAGRAM
+--------------------------------------------------------------------------------
+
+  Pins: VDD, GND, DIN, DO, OUTR, OUTG, OUTB, OUTW
+
+  Functional blocks:
+    - Serial Decode
+    - Reshape & Forward
+    - Constant-Current Output
+    - OSC (internal RC oscillator)
+
+  (See Figure 1 in original datasheet)
+
+
+--------------------------------------------------------------------------------
+IV. PIN LAYOUT
+--------------------------------------------------------------------------------
+
+  SOP8 Package (Top View):
+
+    OUTR  [ 1 ]         [ 8 ]  OUTW
+    OUTG  [ 2 ]         [ 7 ]  VDD
+    OUTB  [ 3 ]         [ 6 ]  DIN
+    GND   [ 4 ]         [ 5 ]  DO
+
+  (See Figure 2 in original datasheet)
+
+
+--------------------------------------------------------------------------------
+V. PIN FUNCTIONS
+--------------------------------------------------------------------------------
+
+  Pin Name  | Pin No. | I/O | Description
+  ----------+---------+-----+----------------------------------
+  DIN       |    6    |  I  | Data input
+  DO        |    5    |  O  | Data output
+  VDD       |    7    |  -- | Power supply positive
+  OUTR      |    1    |  O  | N-type open-drain, constant-current output
+  OUTG      |    2    |  O  | N-type open-drain, constant-current output
+  OUTB      |    3    |  O  | N-type open-drain, constant-current output
+  OUTW      |    8    |  O  | N-type open-drain, constant-current output
+  GND       |    4    |  -- | Power ground
+
+
+--------------------------------------------------------------------------------
+VI. INPUT/OUTPUT EQUIVALENT CIRCUIT
+--------------------------------------------------------------------------------
+
+  (See Figure 3 in original datasheet)
+
+  WARNING: ICs are electrostatic-sensitive devices. In dry environments, large
+  amounts of static electricity can build up. ESD discharge may damage the IC.
+  Titan Micro Electronics recommends all appropriate ESD precautions. Improper
+  handling or soldering may cause ESD damage or performance degradation.
+
+
+--------------------------------------------------------------------------------
+VII. ABSOLUTE MAXIMUM RATINGS
+--------------------------------------------------------------------------------
+
+  Parameter              | Symbol | Limit           | Unit
+  -----------------------+--------+-----------------+-----
+  Logic supply voltage   | VDD    | -0.4 to +7.0    | V
+  DIN pin voltage        | Vin    | -0.4 to VDD+0.7 | V
+  OUT pin voltage        | Vout   | -0.4 to +32.0   | V
+  Operating temperature  | Topr   | -40 to +85      | deg C
+  Storage temperature    | Tstg   | -50 to +150     | deg C
+  ESD (Human Body Model) | HBM    | 3000            | V
+  ESD (Machine Model)    | MM     | 200             | V
+
+  Notes:
+  (1) Exceeding these ratings under prolonged use may cause permanent damage
+      and reduce reliability. Do not operate beyond these limits.
+  (2) All voltages are referenced to system ground.
+
+
+--------------------------------------------------------------------------------
+VIII. RECOMMENDED OPERATING CONDITIONS
+--------------------------------------------------------------------------------
+
+  Tested at -40 to +85 deg C unless otherwise noted.
+
+  Parameter        | Symbol | Test Condition                    | Min | Typ | Max | Unit
+  -----------------+--------+-----------------------------------+-----+-----+-----+-----
+  Supply voltage   | VDD    |                                   | 4.5 | 5.0 | 6.5 | V
+  DIN pin voltage  | Vin    | VDD=5V, DIN with 1k series R      |  -  |  -  |VDD+0.4| V
+  DO pin voltage   | Vdo    | VDD=5V, DO with 1k series R       |  -  |  -  |VDD+0.4| V
+  OUT pin voltage  | Vout   | OUT = OFF                         |  -  |  -  | 24.0| V
+
+
+--------------------------------------------------------------------------------
+IX. ELECTRICAL CHARACTERISTICS
+--------------------------------------------------------------------------------
+
+  Tested at VDD = 4.5-5.5V, -40 to +85 deg C unless otherwise noted.
+
+  Parameter                  | Symbol  | Test Condition                          | Min     | Typ | Max | Unit
+  ---------------------------+---------+-----------------------------------------+---------+-----+-----+------
+  High-level output voltage  | Voh     | Ioh = 3mA                               | VDD-0.5 |  -  |  -  | V
+  Low-level output voltage   | Vol     | Iol = 10mA                              |  -      |  -  | 0.4 | V
+  High-level input voltage   | Vih     | VDD = 5.0V                              | 3.5     |  -  | VDD | V
+  Low-level input voltage    | Vil     | VDD = 5.0V                              | 0       |  -  | 1.5 | V
+  High-level output current  | Ioh     | VDD=5.0V, Vdo=4.9V                      |  -      | 1   |  -  | mA
+  Low-level output current   | Iol     | VDD=5.0V, Vdo=0.4V                      |  -      | 10  |  -  | mA
+  Quiescent current          | IDD     | VDD=4.0V, GND=0V, other pins floating   | 0.5     | 2.8 | 3.5 | mA
+  OUT constant current       | Iout    | All outputs ON, Vout=3.0V               | 6.5     |  -  | 38  | mA
+  OUT leakage current        | Iolkg   | All outputs OFF, Vout=12.0V             |  -      |  -  | 0.5 | uA
+  Channel-to-channel error   | dIolc0  | All outputs ON, Vout=3.0V               |  -      |  -  | +/-3| %
+  Chip-to-chip error         | dIolc1  | All outputs ON, Vout=3.0V               |  -      |  -  | +/-5| %
+  Power dissipation          | Pd      | Ta = 25 deg C                           |  -      | 250 |  -  | mW
+
+
+--------------------------------------------------------------------------------
+X. SWITCHING CHARACTERISTICS
+--------------------------------------------------------------------------------
+
+  Tested at VDD = 4.5-5.5V, -40 to +85 deg C.
+  Typical values at VDD = 5.0V, TA = +25 deg C.
+
+  Parameter              | Symbol | Test Condition  | Min | Typ  | Max  | Unit
+  -----------------------+--------+-----------------+-----+------+------+-----
+  Data rate              | Fin    |                 |  -  | 400  |  -   | KHz
+  OUT PWM output freq    | Fout   | OUTR,OUTG,OUTB  | 900 | 1000 | 1100 | Hz
+  Propagation delay      | Tplz   | DIN -> DO       |  -  | 178  |  -   | ns
+  Input capacitance      | Ci     |                 |  -  |  -   | 15   | pF
+
+
+--------------------------------------------------------------------------------
+XI. TIMING CHARACTERISTICS
+--------------------------------------------------------------------------------
+
+  Parameter                  | Symbol | Test Condition   | Min  | Typ  | Max  | Unit
+  ---------------------------+--------+------------------+------+------+------+-----
+  Logic 0 low time           | T0l    | VDD=5.0V, GND=0V | 620  | 720  | 820  | ns
+  Logic 1 low time           | T1l    |                  | 1300 | 1440 | 2000 | ns
+  Output 0 low time          | T0l'   |                  |  -   | 700  |  -   | ns
+  Output 1 low time          | T1l'   |                  |  -   | 1400 |  -   | ns
+  Bit period (0 or 1)        | T0/T1  |                  |  -   | 2.5  |  -   | us
+  Reset high time            | Treset |                  | 200  |  -   |  -   | us
+
+  Notes:
+  (1) The chip operates normally with bit periods from 2.5us (400KHz) to 5us
+      (200KHz), but the low-time values for 0 and 1 codes must fall within the
+      ranges in the table above.
+  (2) When a reset is not needed, the high-level time between bytes must not
+      exceed 126us — otherwise the chip may reset and re-receive data,
+      preventing proper data transmission.
+
+  (See Figure 4 in original datasheet for timing diagram)
+
+
+--------------------------------------------------------------------------------
+XII. FUNCTIONAL DESCRIPTION
+--------------------------------------------------------------------------------
+
+The chip uses single-wire communication with Return-to-Zero (RZ) encoding. After
+power-on reset, it receives data on DIN. After receiving 32 bits, the DO port
+begins forwarding any subsequent DIN data to the next cascaded chip. Before
+forwarding begins, DO stays high. When a RESET signal is received on DIN, the
+chip sets the constant-current values and begins outputting the corresponding
+PWM duty cycle based on the received 32-bit data, then waits for new data. Until
+a RESET is received after the initial 32 bits, OUTW/OUTR/OUTG/OUTB maintain
+their previous output states.
+
+The chip uses automatic reshape-and-forward technology — signals never distort
+or attenuate, so the number of cascaded chips is not limited by signal integrity,
+only by refresh rate requirements.
+
+
+1. COMPLETE FRAME STRUCTURE
+----------------------------
+
+  [ C1 | C2 | D1 | D2 | D3 | D4 | ... | Dn | Reset ]
+
+  C1, C2  = Constant-current setting commands (received and forwarded by every chip)
+  D1..Dn  = PWM setting commands for each chip
+  Reset   = Reset signal, active high
+
+
+2. C1 DATA FORMAT (32 bits, MSB first)
+----------------------------------------
+
+  [ W7 W6 W5 W4 W3 W2 W1 W0 | R7 R6 R5 R4 R3 R2 R1 R0 |
+    G7 G6 G5 G4 G3 G2 G1 G0 | B7 B6 B5 B4 B3 B2 B1 B0 ]
+
+  C1 contains 8x4 = 32 bits. W7, W6, R7, R6, G7, G6, B7, B6 FIXED AT 0.
+
+  W[5:0] : Sets OUTW constant current. All 0s = 6.5mA, all 1s = 38mA, 64 steps.
+  R[5:0] : Sets OUTR constant current. All 0s = 6.5mA, all 1s = 38mA, 64 steps.
+  G[5:0] : Sets OUTG constant current. All 0s = 6.5mA, all 1s = 38mA, 64 steps.
+  B[5:0] : Sets OUTB constant current. All 0s = 6.5mA, all 1s = 38mA, 64 steps.
+
+
+3. C2 DATA FORMAT
+------------------
+
+  Same 32-bit layout as C1.
+  C2 MUST BE THE BITWISE INVERSE OF C1.
+  If C2 != ~C1, the chip will not decode the data correctly.
+
+
+4. Dn DATA FORMAT (32 bits, MSB first)
+----------------------------------------
+
+  [ W7 W6 W5 W4 W3 W2 W1 W0 | R7 R6 R5 R4 R3 R2 R1 R0 |
+    G7 G6 G5 G4 G3 G2 G1 G0 | B7 B6 B5 B4 B3 B2 B1 B0 ]
+
+  Each PWM command is 8x4 = 32 bits, MSB first.
+
+  W[7:0] : PWM duty cycle for OUTW. All 0s = off, all 1s = max duty, 256 steps.
+  R[7:0] : PWM duty cycle for OUTR. All 0s = off, all 1s = max duty, 256 steps.
+  G[7:0] : PWM duty cycle for OUTG. All 0s = off, all 1s = max duty, 256 steps.
+  B[7:0] : PWM duty cycle for OUTB. All 0s = off, all 1s = max duty, 256 steps.
+
+
+5. DATA RECEPTION AND FORWARDING
+----------------------------------
+
+  Topology: Controller -> Chip1 (DIN/DO) -> Chip2 (DIN/DO) -> Chip3 (DIN/DO)
+
+  Data flow:
+  - While Chip 1 is receiving C1, it does NOT forward.
+  - When Chip 1 begins receiving C2, it starts forwarding C1.
+  - When Chip 1 finishes C2, C1 forwarding is also complete.
+  - Controller sends D1; Chip 1 begins forwarding C2.
+  - When C2 forwarding finishes (same moment D1 reception completes),
+    Chip 1 forwards all subsequent D2, D3...Dn as they arrive.
+  - There is always a constant 32-bit offset between what the controller
+    sends and what Chip 1 forwards.
+  - When the controller sends Reset, Chip 1 validates C1 vs C2; if valid,
+    applies constant-current setting and converts D1 to actual PWM output.
+  - All downstream chips (Chip 2, 3...n) operate identically — each keeps
+    the first PWM data packet (32 bits) after C1/C2 for itself and forwards
+    all remaining PWM data downstream.
+
+  (See Figures 5 and 6 in original datasheet for cascade diagrams)
+
+
+--------------------------------------------------------------------------------
+XIII. APPLICATION INFORMATION
+--------------------------------------------------------------------------------
+
+1. TYPICAL APPLICATION CIRCUIT
+--------------------------------
+
+  (See Figure 7 in original datasheet)
+
+  - Place 100 ohm protection resistors in series on both DIN and DO lines
+    to protect against transient voltages from hot-plug testing.
+  - 104 (100nF) decoupling capacitors on each chip VDD are mandatory.
+  - Traces to VDD and GND should be as short as possible for best decoupling.
+
+
+2. POWER SUPPLY CONFIGURATION
+-------------------------------
+
+  TM1815B supports DC 6-24V input. A series resistor is required on VDD
+  based on input voltage. Formula (assuming 10mA through VDD):
+
+    R = (Vcc - 5.5V) / 10mA
+
+  Supply Voltage (DC) | Recommended Series Resistor (VCC to VDD)
+  --------------------+-----------------------------------------
+  5V                  | None required; internal Zener inactive
+  6V                  | 50 ohm
+  9V                  | 350 ohm
+  12V                 | 650 ohm
+  24V                 | 1.8K ohm
+
+
+3. CALCULATING DATA REFRESH RATE
+----------------------------------
+
+  One WRGB group = one pixel; one TM1815B controls one WRGB pixel.
+  At normal mode (400KHz, 2.5us/bit):
+
+    Each pixel = 32 bits of PWM data
+    Transfer time per pixel = 2.5us x 32 = 80us
+    C1 + C2 overhead = 240us
+
+  Example: 1000 pixels => 80us x 1000 = 80ms per refresh => ~12.5 Hz
+
+  Pixel Count | Fastest Refresh Time (ms) | Max Refresh Rate (Hz)
+  ------------+---------------------------+----------------------
+  1 - 400     | 32                        | 31.25
+  1 - 800     | 64                        | 15.63
+  1 - 1000    | 80                        | 12.50
+
+
+4. ACHIEVING OPTIMAL CONSTANT-CURRENT OPERATION
+-------------------------------------------------
+
+  The TM1815B enters constant-current mode once the OUT port voltage reaches
+  0.8V. However, higher OUT voltages increase chip power dissipation and heat,
+  reducing system reliability.
+
+  RECOMMENDED: OUT port voltage of 1.2-3V when active.
+  Use a series resistor to reduce an excessively high OUT voltage.
+
+
+5. CURRENT EXPANSION (PARALLELING OUTPUTS)
+--------------------------------------------
+
+  If higher drive current is needed, WRGB output pins can be shorted together.
+  Each additional shorted OUT pin adds up to 38mA to the maximum current.
+
+  Outputs shorted | Maximum current
+  ----------------+----------------
+  1 output        | 38mA
+  2 outputs       | 76mA
+  3 outputs       | 114mA
+  All 4 outputs   | 152mA
+
+  This requires software to write separate register values for each shorted
+  output to achieve accurate current control.
+
+  (See Figure 8 in original datasheet for expanded-current wiring diagram)
+
+
+--------------------------------------------------------------------------------
+XIV. CONSTANT-CURRENT CURVES
+--------------------------------------------------------------------------------
+
+  When the same constant-current setting is used across channels or chips, the
+  variation is extremely small. Output current remains stable even as load
+  voltage varies.
+
+  The OUT port enters constant-current mode at approximately 0.8V.
+
+  (See Figure 9 in original datasheet — U-I curves for 38mA, 21mA, and 6mA)
+
+
+--------------------------------------------------------------------------------
+XV. PACKAGE DRAWING (SOP8)
+--------------------------------------------------------------------------------
+
+  Symbol | Min (mm) | Max (mm) | Min (in) | Max (in)
+  -------+----------+----------+----------+---------
+  A      | 1.350    | 1.750    | 0.053    | 0.069
+  A1     | 0.100    | 0.250    | 0.004    | 0.010
+  A2     | 1.350    | 1.550    | 0.053    | 0.061
+  b      | 0.330    | 0.510    | 0.013    | 0.020
+  c      | 0.170    | 0.250    | 0.006    | 0.010
+  D      | 4.700    | 5.100    | 0.185    | 0.200
+  E      | 3.800    | 4.000    | 0.150    | 0.157
+  E1     | 5.800    | 6.200    | 0.228    | 0.244
+  e      | 1.270 BSC         | 0.050 BSC
+  L      | 0.400    | 1.270    | 0.016    | 0.050
+  theta  | 0 deg    | 8 deg    | 0 deg    | 8 deg
+
+  All specs and applications shown above are subject to change without
+  prior notice.
+
+================================================================================
+END OF DOCUMENT
+TM1815B English Translation — Titan Micro Electronics
+================================================================================
