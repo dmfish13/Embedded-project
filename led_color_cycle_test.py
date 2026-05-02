@@ -148,7 +148,7 @@ def main():
         while state['running']:
             with lock:
                 buf = state['buf']
-            spi.xfer2(buf)
+            spi.xfer2(buf[:])
 
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
     spi_thread.start()
