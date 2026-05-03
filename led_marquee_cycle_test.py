@@ -15,6 +15,7 @@ Keys:
   [9] Chaser  — colors chase through PCBs every 0.25s
   [0] Theater — every-3rd-PCB chase in Neutral White (0.3s step)
   [-] Twinkle — independent fade-through-off color changes per PCB
+  [=] Preset  — cycle through holiday color presets
   Ctrl+C      — quit
 
 Random colors are chosen from the 16 eligible colors (15 RGB + Neutral
@@ -90,17 +91,17 @@ NEUTRAL_WHITE = (255, 0, 0, 0)
 
 # (key, name, WRGB tuple) — Off uses None
 COLOR_MAP = [
-    ('1', "Deep Red",              (0,   180, 0,   0)),
+    ('1', "Deep Red",              (0,   150, 5,   5)),
     ('2', "Mint",                  (0,   0,   225, 120)),
     ('3', "Dark Blue",             (0,   0,   0,   139)),
     ('4', "Red Prime",             (0,   255, 0,   0)),
     ('q', "Orange",                (0,   255, 100, 0)),
     ('w', "Light Blue",            (0,   100, 150, 255)),
-    ('e', "Violet",                (0,   148, 0,   211)),
+    ('e', "Violet",                (0,   100, 0,   211)),
     ('r', "Green Prime",           (0,   0,   255, 0)),
     ('a', "Golden Rod",            (0,   218, 148, 0)),
     ('s', "Cyan",                  (0,   0,   255, 255)),
-    ('d', "Purple",                (0,   128, 0,   128)),
+    ('d', "Purple",                (0,   128, 0,   168)),
     ('f', "Blue Prime",            (0,   0,   0,   255)),
     ('z', "Yellow",                (0,   255, 230, 0)),
     ('x', "Steel Blue",            (0,   70,  130, 180)),
@@ -118,6 +119,23 @@ ELIGIBLE_COLORS = [
     if wrgb is not None and name not in (
         "Candlelight ~1800K", "Warm White ~3000K",
         "Cool White ~5000K", "Daylight ~6500K")
+]
+
+FOREST_GREEN = (0, 10, 154, 24)
+IRISH_GREEN = (0, 30, 196, 30)
+
+WARM_WHITE = (154, 180, 77, 0)
+DEEP_RED = (0, 150, 5, 5)
+COOL_WHITE = (217, 0, 64, 128)
+ORANGE = (0, 255, 100, 0)
+RED_PRIME = (0, 255, 0, 0)
+DARK_BLUE = (0, 0, 0, 139)
+
+PRESETS = [
+    ("Christmas",       [WARM_WHITE, FOREST_GREEN, DEEP_RED]),
+    ("St Patrick's Day", [IRISH_GREEN, COOL_WHITE, ORANGE]),
+    ("4th of July",     [RED_PRIME, COOL_WHITE, DARK_BLUE]),
+    ("Canada",          [DEEP_RED, COOL_WHITE, DEEP_RED]),
 ]
 
 
@@ -159,7 +177,7 @@ def build_multi_buf(pcb_pixels):
 def main():
     print("=" * 70)
     print("  PCB Color Selector — Solid / Fade / Strobe / Chaser / "
-          "Theater / Twinkle")
+          "Theater / Twinkle / Preset")
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
@@ -184,6 +202,15 @@ def main():
     print(f"    [0]  Theater  — every-3rd-PCB chase, Neutral White "
           f"({THEATER_INTERVAL}s step)")
     print(f"    [-]  Twinkle  — independent fade-through-off per PCB")
+    print(f"    [=]  Preset   — cycle holiday color presets")
+    for name, pattern in PRESETS:
+        colors = ", ".join(
+            next((n for _, n, w in COLOR_MAP if w == c),
+                 next((k for k, v in [
+                     ("Forest Green", FOREST_GREEN),
+                     ("Irish Green", IRISH_GREEN)] if v == c), "?"))
+            for c in pattern)
+        print(f"           {name}: {colors}")
     print()
     print("  Ctrl+C to quit.")
     print("=" * 70)
@@ -204,6 +231,7 @@ def main():
     dimmer_idx = 9
     current_wrgb = None
     active_mode = None
+    preset_idx = 0
 
     state = {'buf': build_solid_buf(None, 1.0), 'running': True}
     lock = threading.Lock()
@@ -347,6 +375,15 @@ def main():
             with lock:
                 state['buf'] = build_multi_buf(pcb_current_pixel)
 
+    # --- Preset ---
+    def preset_loop(preset_idx):
+        _, pattern = PRESETS[preset_idx]
+        pixels = [pattern[n % len(pattern)] for n in range(NUM_LEDS)]
+        with lock:
+            state['buf'] = build_multi_buf(pixels)
+        while not mode_stop.wait(0.5):
+            pass
+
     def stop_mode():
         nonlocal active_mode, mode_thread
         if mode_thread:
@@ -356,7 +393,7 @@ def main():
         active_mode = None
         mode_stop.clear()
 
-    def start_mode(mode, start_color=None):
+    def start_mode(mode, start_color=None, preset_idx=0):
         nonlocal active_mode, mode_thread
         stop_mode()
         active_mode = mode
@@ -377,6 +414,9 @@ def main():
         elif mode == 'twinkle':
             mode_thread = threading.Thread(
                 target=twinkle_loop, daemon=True)
+        elif mode == 'preset':
+            mode_thread = threading.Thread(
+                target=preset_loop, args=(preset_idx,), daemon=True)
         mode_thread.start()
 
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
@@ -403,7 +443,8 @@ def main():
 
             elif ch == '7':
                 if active_mode in (
-                        'fade', 'strobe', 'theater', 'twinkle'):
+                        'fade', 'strobe', 'theater', 'twinkle',
+                        'preset'):
                     continue
                 if dimmer_idx == 0:
                     dimmer_idx = 9
@@ -437,6 +478,16 @@ def main():
             elif ch == '-':
                 start_mode('twinkle')
                 sys.stdout.write("  Twinkle: ON\r\n")
+                sys.stdout.flush()
+
+            elif ch == '=':
+                if active_mode == 'preset':
+                    preset_idx = (preset_idx + 1) % len(PRESETS)
+                else:
+                    preset_idx = 0
+                start_mode('preset', preset_idx=preset_idx)
+                name = PRESETS[preset_idx][0]
+                sys.stdout.write(f"  Preset: {name}\r\n")
                 sys.stdout.flush()
 
             elif ch in color_keys:

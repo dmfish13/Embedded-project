@@ -65,7 +65,7 @@ BUTTON_MAP = {
     "Deep_Red": {
         "label": "Deep Red",
         "hex": None,
-        "wrgb": (0, 180, 0, 0),
+        "wrgb": (0, 150, 5, 5),
     },
     "Mint": {
         "label": "Mint",
@@ -97,7 +97,7 @@ BUTTON_MAP = {
     "Violet": {
         "label": "Violet",
         "hex": None,
-        "wrgb": (0, 148, 0, 211),
+        "wrgb": (0, 100, 0, 211),
     },
 
     # --- Row 5: Colors ---
@@ -119,7 +119,7 @@ BUTTON_MAP = {
     "Purple": {
         "label": "Purple",
         "hex": None,
-        "wrgb": (0, 128, 0, 128),
+        "wrgb": (0, 128, 0, 168),
     },
 
     # --- Row 6: Colors ---

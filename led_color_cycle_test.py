@@ -53,17 +53,17 @@ def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
 
 # (key, name, WRGB tuple) — Off uses None
 COLOR_MAP = [
-    ('1', "Deep Red",              (0,   180, 0,   0)),
+    ('1', "Deep Red",              (0,   150, 5,   5)),
     ('2', "Mint",                  (0,   0,   225, 120)),
     ('3', "Dark Blue",             (0,   0,   0,   139)),
     ('4', "Red Prime",             (0,   255, 0,   0)),
     ('q', "Orange",                (0,   255, 100, 0)),
     ('w', "Light Blue",            (0,   100, 150, 255)),
-    ('e', "Violet",                (0,   148, 0,   211)),
+    ('e', "Violet",                (0,   100, 0,   211)),
     ('r', "Green Prime",           (0,   0,   255, 0)),
     ('a', "Golden Rod",            (0,   218, 148, 0)),
     ('s', "Cyan",                  (0,   0,   255, 255)),
-    ('d', "Purple",                (0,   128, 0,   128)),
+    ('d', "Purple",                (0,   128, 0,   168)),
     ('f', "Blue Prime",            (0,   0,   0,   255)),
     ('z', "Yellow",                (0,   255, 230, 0)),
     ('x', "Steel Blue",            (0,   70,  130, 180)),
