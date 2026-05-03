@@ -4,151 +4,151 @@ Button map for the Jasco QOBRGBXYZA 25-button membrane keypad remote.
 Each button is mapped with:
   - label: Human-readable button name
   - hex:   Placeholder for the raw RF payload captured by the scanner
-  - rgb:   Default RGBW tuple (R, G, B, W) for color buttons; None for function buttons
+  - wrgb:  Default WRGB tuple (W, R, G, B) for color buttons; None for function buttons
 
 Once the RF scanner captures real payloads, replace the placeholder hex values
 with the actual captured bytes.
 """
 
-# RGBW tuples: (Red, Green, Blue, White) -- values 0-255
+# WRGB tuples: (White, Red, Green, Blue) -- values 0-255
 BUTTON_MAP = {
     # --- Row 1: Function buttons ---
     "Power": {
         "label": "Power",
         "hex": None,  # placeholder -- fill after RF capture
-        "rgbw": None,
+        "wrgb": None,
     },
     "Fade": {
         "label": "Fade",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
     "Dimming": {
         "label": "Dimming",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
     "Strobe": {
         "label": "Strobe",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
 
     # --- Row 2: Mixed function / color ---
     "Color1": {
         "label": "Color1",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
     "2-hour": {
         "label": "2-hour Timer",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
     "Color2": {
         "label": "Color2",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
     "4-hour": {
         "label": "4-hour Timer",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
 
     # --- Row 3: Function + colors ---
     "Modes": {
         "label": "Modes",
         "hex": None,
-        "rgbw": None,
+        "wrgb": None,
     },
     "Deep_Red": {
         "label": "Deep Red",
         "hex": None,
-        "rgbw": (180, 0, 0, 0),
+        "wrgb": (0, 180, 0, 0),
     },
     "Mint": {
         "label": "Mint",
         "hex": None,
-        "rgbw": (0, 200, 120, 0),
+        "wrgb": (0, 0, 200, 120),
     },
     "Dark_Blue": {
         "label": "Dark Blue",
         "hex": None,
-        "rgbw": (0, 0, 139, 0),
+        "wrgb": (0, 0, 0, 139),
     },
 
     # --- Row 4: Colors ---
     "Red_Prime": {
         "label": "Red Prime",
         "hex": None,
-        "rgbw": (255, 0, 0, 0),
+        "wrgb": (0, 255, 0, 0),
     },
     "Orange": {
         "label": "Orange",
         "hex": None,
-        "rgbw": (255, 100, 0, 0),
+        "wrgb": (0, 255, 100, 0),
     },
     "Light_Blue": {
         "label": "Light Blue",
         "hex": None,
-        "rgbw": (100, 150, 255, 0),
+        "wrgb": (0, 100, 150, 255),
     },
     "Violet": {
         "label": "Violet",
         "hex": None,
-        "rgbw": (148, 0, 211, 0),
+        "wrgb": (0, 148, 0, 211),
     },
 
     # --- Row 5: Colors ---
     "Green_Prime": {
         "label": "Green Prime",
         "hex": None,
-        "rgbw": (0, 255, 0, 0),
+        "wrgb": (0, 0, 255, 0),
     },
-    "Yellow": {
-        "label": "Yellow",
+    "Golden_Rod": {
+        "label": "Golden Rod",
         "hex": None,
-        "rgbw": (255, 255, 0, 0),
+        "wrgb": (0, 218, 165, 0),
     },
     "Cyan": {
         "label": "Cyan",
         "hex": None,
-        "rgbw": (0, 255, 255, 0),
+        "wrgb": (0, 0, 255, 255),
     },
     "Purple": {
         "label": "Purple",
         "hex": None,
-        "rgbw": (128, 0, 128, 0),
+        "wrgb": (0, 128, 0, 128),
     },
 
     # --- Row 6: Colors ---
     "Blue_Prime": {
         "label": "Blue Prime",
         "hex": None,
-        "rgbw": (0, 0, 255, 0),
+        "wrgb": (0, 0, 0, 255),
     },
-    "Neon_Yellow": {
-        "label": "Neon Yellow",
+    "Yellow": {
+        "label": "Yellow",
         "hex": None,
-        "rgbw": (220, 255, 0, 0),
+        "wrgb": (0, 255, 255, 0),
     },
     "Steel_Blue": {
         "label": "Steel Blue",
         "hex": None,
-        "rgbw": (70, 130, 180, 0),
+        "wrgb": (0, 70, 130, 180),
     },
     "Magenta": {
         "label": "Magenta",
         "hex": None,
-        "rgbw": (255, 0, 255, 0),
+        "wrgb": (0, 255, 0, 255),
     },
 
     # --- Row 7: White ---
     "White_Select": {
         "label": "White Select",
         "hex": None,
-        "rgbw": (0, 0, 0, 255),
+        "wrgb": (255, 0, 0, 0),
     },
 }
 
@@ -168,29 +168,29 @@ def lookup_by_hex(payload_hex):
     return None
 
 
-def get_rgbw(button_key):
-    """Return the RGBW tuple for a given button key.
+def get_wrgb(button_key):
+    """Return the WRGB tuple for a given button key.
 
     Args:
         button_key: String key from BUTTON_MAP (e.g. "Red_Prime").
 
     Returns:
-        Tuple of (R, G, B, W) or None if the button has no color.
+        Tuple of (W, R, G, B) or None if the button has no color.
     """
     btn = BUTTON_MAP.get(button_key)
     if btn is None:
         return None
-    return btn["rgbw"]
+    return btn["wrgb"]
 
 
 def list_buttons():
     """Print all buttons and their current hex mappings."""
-    print(f"{'#':<4} {'Key':<16} {'Label':<18} {'Hex':<20} {'RGBW'}")
+    print(f"{'#':<4} {'Key':<16} {'Label':<18} {'Hex':<20} {'WRGB'}")
     print("-" * 75)
     for i, (key, btn) in enumerate(BUTTON_MAP.items(), start=1):
         hex_str = btn["hex"] if btn["hex"] else "(not captured)"
-        rgbw_str = str(btn["rgbw"]) if btn["rgbw"] else "(function btn)"
-        print(f"{i:<4} {key:<16} {btn['label']:<18} {hex_str:<20} {rgbw_str}")
+        wrgb_str = str(btn["wrgb"]) if btn["wrgb"] else "(function btn)"
+        print(f"{i:<4} {key:<16} {btn['label']:<18} {hex_str:<20} {wrgb_str}")
 
 
 if __name__ == "__main__":

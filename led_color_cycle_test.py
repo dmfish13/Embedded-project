@@ -5,8 +5,7 @@ PCB1 color selector — 20 colors + off, selected by keyboard.
 Uses the same format as led_c1c2_test.py Section 5 baseline:
   4-bit encoding @ 2.0 MHz, C1=[0x1E,0x1E,0x1E,0x1E], 4 pixels.
 
-Colors from button_map.py are RGBW tuples (R,G,B,W).
-TM1815B frame order is WRGB, so we reorder before sending.
+Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
 
 Press the assigned key to instantly switch colors. Ctrl+C to quit.
 
@@ -52,32 +51,28 @@ def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
     return buf
 
 
-def rgbw_to_wrgb(r, g, b, w):
-    return (w, r, g, b)
-
-
-# (key, name, RGBW tuple) — Off uses None for RGBW
+# (key, name, WRGB tuple) — Off uses None
 COLOR_MAP = [
-    ('1', "Deep Red",              (180, 0,   0,   0)),
-    ('2', "Mint",                  (0,   200, 120, 0)),
-    ('3', "Dark Blue",             (0,   0,   139, 0)),
-    ('4', "Red Prime",             (255, 0,   0,   0)),
-    ('q', "Orange",                (255, 100, 0,   0)),
-    ('w', "Light Blue",            (100, 150, 255, 0)),
-    ('e', "Violet",                (148, 0,   211, 0)),
-    ('r', "Green Prime",           (0,   255, 0,   0)),
-    ('a', "Yellow",                (255, 255, 0,   0)),
-    ('s', "Cyan",                  (0,   255, 255, 0)),
-    ('d', "Purple",                (128, 0,   128, 0)),
-    ('f', "Blue Prime",            (0,   0,   255, 0)),
-    ('z', "Neon Yellow",           (220, 255, 0,   0)),
-    ('x', "Steel Blue",            (70,  130, 180, 0)),
-    ('c', "Magenta",               (255, 0,   255, 0)),
-    ('v', "Candlelight ~1800K",    (255, 128, 0,   76)),
-    ('b', "Warm White ~3000K",     (255, 128, 12,  255)),
-    ('n', "Neutral White ~4000K",  (0,   0,   0,   255)),
-    ('m', "Cool White ~5000K",     (0,   64,  128, 217)),
-    (',', "Daylight ~6500K",       (0,   128, 255, 178)),
+    ('1', "Deep Red",              (0,   180, 0,   0)),
+    ('2', "Mint",                  (0,   0,   200, 120)),
+    ('3', "Dark Blue",             (0,   0,   0,   139)),
+    ('4', "Red Prime",             (0,   255, 0,   0)),
+    ('q', "Orange",                (0,   255, 100, 0)),
+    ('w', "Light Blue",            (0,   100, 150, 255)),
+    ('e', "Violet",                (0,   148, 0,   211)),
+    ('r', "Green Prime",           (0,   0,   255, 0)),
+    ('a', "Golden Rod",            (0,   218, 165, 0)),
+    ('s', "Cyan",                  (0,   0,   255, 255)),
+    ('d', "Purple",                (0,   128, 0,   128)),
+    ('f', "Blue Prime",            (0,   0,   0,   255)),
+    ('z', "Yellow",                (0,   255, 255, 0)),
+    ('x', "Steel Blue",            (0,   70,  130, 180)),
+    ('c', "Magenta",               (0,   255, 0,   255)),
+    ('v', "Candlelight ~1800K",    (76,  255, 128, 0)),
+    ('b', "Warm White ~3000K",     (154, 180, 77,  0)),
+    ('n', "Neutral White ~4000K",  (255, 0,   0,   0)),
+    ('m', "Cool White ~5000K",     (217, 0,   64,  128)),
+    (',', "Daylight ~6500K",       (178, 0,   128, 255)),
     ('p', "Off",                   None),
 ]
 
@@ -90,13 +85,9 @@ RESET = 80
 def build_all_bufs():
     """Pre-build frame buffers for every color. Off = all zeros."""
     bufs = {}
-    for key, name, rgbw in COLOR_MAP:
-        if rgbw is None:
-            wrgb = (0, 0, 0, 0)
-        else:
-            r, g, b, w = rgbw
-            wrgb = rgbw_to_wrgb(r, g, b, w)
-        buf = build_frame(C1, C2, [wrgb] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET)
+    for key, name, wrgb in COLOR_MAP:
+        pixel = wrgb if wrgb is not None else (0, 0, 0, 0)
+        buf = build_frame(C1, C2, [pixel] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET)
         bufs[key] = list(buf)
     return bufs
 
@@ -110,12 +101,12 @@ def main():
     print("  C1=[0x1E, 0x1E, 0x1E, 0x1E]  C2=[0xE1, 0xE1, 0xE1, 0xE1]")
     print()
     print("  Key assignments:")
-    for key, name, rgbw in COLOR_MAP:
-        if rgbw is None:
+    for key, name, wrgb in COLOR_MAP:
+        if wrgb is None:
             print(f"    [{key}]  {name}")
         else:
-            r, g, b, w = rgbw
-            print(f"    [{key}]  {name:.<30s} R={r:>3} G={g:>3} B={b:>3} W={w:>3}")
+            w, r, g, b = wrgb
+            print(f"    [{key}]  {name:.<30s} W={w:>3} R={r:>3} G={g:>3} B={b:>3}")
     print()
     print("  Ctrl+C to quit.")
     print("=" * 68)
@@ -140,7 +131,6 @@ def main():
 
     print(f"\n  SPI: requested {SPEED/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
 
-    # Mutable container so the SPI thread always sees updates
     state = {'buf': bufs['p'], 'running': True}
     lock = threading.Lock()
 
@@ -167,7 +157,6 @@ def main():
             if ch in valid_keys:
                 with lock:
                     state['buf'] = bufs[ch]
-                # Raw mode needs \r\n for proper line breaks
                 sys.stdout.write(f"  → {key_to_name[ch]}\r\n")
                 sys.stdout.flush()
     finally:
