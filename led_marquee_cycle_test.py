@@ -131,6 +131,17 @@ ORANGE = (0, 255, 100, 0)
 RED_PRIME = (0, 255, 0, 0)
 DARK_BLUE = (0, 0, 0, 139)
 
+PRESET_COLOR_NAMES = {
+    FOREST_GREEN: "Forest Green",
+    IRISH_GREEN: "Irish Green",
+    WARM_WHITE: "Warm White",
+    DEEP_RED: "Deep Red",
+    COOL_WHITE: "Cool White",
+    ORANGE: "Orange",
+    RED_PRIME: "Red Prime",
+    DARK_BLUE: "Dark Blue",
+}
+
 PRESETS = [
     ("Christmas",       [WARM_WHITE, FOREST_GREEN, DEEP_RED]),
     ("St Patrick's Day", [IRISH_GREEN, COOL_WHITE, ORANGE]),
@@ -204,12 +215,7 @@ def main():
     print(f"    [-]  Twinkle  — independent fade-through-off per PCB")
     print(f"    [=]  Preset   — cycle holiday color presets")
     for name, pattern in PRESETS:
-        colors = ", ".join(
-            next((n for _, n, w in COLOR_MAP if w == c),
-                 next((k for k, v in [
-                     ("Forest Green", FOREST_GREEN),
-                     ("Irish Green", IRISH_GREEN)] if v == c), "?"))
-            for c in pattern)
+        colors = ", ".join(PRESET_COLOR_NAMES.get(c, "?") for c in pattern)
         print(f"           {name}: {colors}")
     print()
     print("  Ctrl+C to quit.")
