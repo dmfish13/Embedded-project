@@ -9,7 +9,8 @@ Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
 All four D1 PWM values are multiplied by the dimmer before output.
 
 Press a color key to switch colors. Press [7] to cycle the dimmer
-(1.0 → 0.9 → ... → 0.1 → 1.0). Ctrl+C to quit.
+(1.0 → 0.9 → ... → 0.1 → 1.0). Press [8] to cycle C1[0] white
+current (63 → 56 → 48 → 32 → 24 → 16 → 8 → 1 → 63). Ctrl+C to quit.
 
 Usage:
     python3 led_dimming_cycle_test.py
@@ -24,6 +25,7 @@ from spidev import SpiDev
 NUM_LEDS = 4
 
 DIMMER_STEPS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+C1_CURRENT_STEPS = [63, 56, 48, 32, 24, 16, 8, 1]
 
 
 def encode_byte_4bit(value):
@@ -80,14 +82,12 @@ COLOR_MAP = [
     ('p', "Off",                   None),
 ]
 
-C1 = [0x1E, 0x1E, 0x1E, 0x1E]
-C2 = [0xE1, 0xE1, 0xE1, 0xE1]
 SPEED = 2_000_000
 RESET = 80
 
 
 def build_all_bufs():
-    """Pre-build frame buffers for every color × dimmer combination."""
+    """Pre-build frame buffers for every color × dimmer × C1 current combination."""
     bufs = {}
     for key, name, wrgb in COLOR_MAP:
         for di, dim in enumerate(DIMMER_STEPS):
@@ -100,8 +100,11 @@ def build_all_bufs():
                     int(wrgb[2] * dim),
                     int(wrgb[3] * dim),
                 )
-            buf = build_frame(C1, C2, [pixel] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET)
-            bufs[(key, di)] = list(buf)
+            for ci, c1_val in enumerate(C1_CURRENT_STEPS):
+                c1 = [c1_val, 0x1E, 0x1E, 0x1E]
+                c2 = [c1_val ^ 0xFF, 0xE1, 0xE1, 0xE1]
+                buf = build_frame(c1, c2, [pixel] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET)
+                bufs[(key, di, ci)] = list(buf)
     return bufs
 
 
@@ -111,7 +114,7 @@ def main():
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
-    print("  C1=[0x1E, 0x1E, 0x1E, 0x1E]  C2=[0xE1, 0xE1, 0xE1, 0xE1]")
+    print("  C1[0] = white current (variable), C1[1-3] = 0x1E")
     print()
     print("  Key assignments:")
     for key, name, wrgb in COLOR_MAP:
@@ -122,16 +125,10 @@ def main():
             print(f"    [{key}]  {name:.<30s} W={w:>3} R={r:>3} G={g:>3} B={b:>3}")
     print()
     print(f"    [7]  Dimmer (cycles 1.0 → 0.9 → ... → 0.1 → 1.0)")
+    print(f"    [8]  C1 current (cycles 63 → 56 → 48 → 32 → 24 → 16 → 8 → 1)")
     print()
     print("  Ctrl+C to quit.")
     print("=" * 68)
-
-    for j in range(4):
-        if C2[j] != (C1[j] ^ 0xFF):
-            print(f"  *** ERROR: C2[{j}]=0x{C2[j]:02X} is NOT "
-                  f"~C1[{j}]=0x{C1[j]:02X} "
-                  f"(expected 0x{C1[j] ^ 0xFF:02X}) ***")
-            sys.exit(1)
 
     bufs = build_all_bufs()
     color_keys = {key for key, _, _ in COLOR_MAP}
@@ -147,9 +144,10 @@ def main():
     print(f"\n  SPI: requested {SPEED/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
 
     dimmer_idx = 9  # 1.0
+    c1_idx = 0      # 63
     current_color = 'p'
 
-    state = {'buf': bufs[('p', dimmer_idx)], 'running': True}
+    state = {'buf': bufs[('p', dimmer_idx, c1_idx)], 'running': True}
     lock = threading.Lock()
 
     def spi_loop():
@@ -161,7 +159,8 @@ def main():
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
     spi_thread.start()
 
-    print(f"  Active: Off | Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f}")
+    print(f"  Active: Off | Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f} | "
+          f"C1[0]: {C1_CURRENT_STEPS[c1_idx]}")
     print(f"  Press a key to select a color...\n")
 
     fd = sys.stdin.fileno()
@@ -178,17 +177,25 @@ def main():
                 else:
                     dimmer_idx -= 1
                 with lock:
-                    state['buf'] = bufs[(current_color, dimmer_idx)]
+                    state['buf'] = bufs[(current_color, dimmer_idx, c1_idx)]
                 sys.stdout.write(
                     f"  Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f}\r\n")
+                sys.stdout.flush()
+            elif ch == '8':
+                c1_idx = (c1_idx + 1) % len(C1_CURRENT_STEPS)
+                with lock:
+                    state['buf'] = bufs[(current_color, dimmer_idx, c1_idx)]
+                sys.stdout.write(
+                    f"  C1[0]: {C1_CURRENT_STEPS[c1_idx]}\r\n")
                 sys.stdout.flush()
             elif ch in color_keys:
                 current_color = ch
                 with lock:
-                    state['buf'] = bufs[(current_color, dimmer_idx)]
+                    state['buf'] = bufs[(current_color, dimmer_idx, c1_idx)]
                 sys.stdout.write(
                     f"  → {key_to_name[ch]} "
-                    f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})\r\n")
+                    f"(dim {DIMMER_STEPS[dimmer_idx]:.1f} "
+                    f"C1[0]={C1_CURRENT_STEPS[c1_idx]})\r\n")
                 sys.stdout.flush()
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
