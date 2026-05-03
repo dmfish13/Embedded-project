@@ -1,25 +1,20 @@
 #!/usr/bin/env python3
 """
-C1 current test — effect of C1 values on white LED brightness.
+C1 current test — effect of C1[0] value on white LED brightness.
 
 Uses the same format as led_c1c2_test.py Section 5 baseline:
   4-bit encoding @ 2.0 MHz, 4 pixels.
 
 Only the white LED is on (D1-D4 = (W, 0, 0, 0)).
 For each of 5 white levels, each of 6 C1 current values is tested
-individually in each of the 4 C1 byte positions, with the other
-3 positions set to 0.
+in the first C1 position, with positions 2-4 set to 0.
 
-Example for W=1:
-  C1=[0,0,0,0]  C1=[1,0,0,0]  C1=[16,0,0,0] ... C1=[63,0,0,0]
-  C1=[0,0,0,0]  C1=[0,1,0,0]  C1=[0,16,0,0] ... C1=[0,63,0,0]
-  C1=[0,0,0,0]  C1=[0,0,1,0]  C1=[0,0,16,0] ... C1=[0,0,63,0]
-  C1=[0,0,0,0]  C1=[0,0,0,1]  C1=[0,0,0,16] ... C1=[0,0,0,63]
+Example: C1=[0,0,0,0], C1=[1,0,0,0], C1=[16,0,0,0] ... C1=[63,0,0,0]
 
 C1 byte format: bits[7:6]=00, bits[5:0]=current (0=6.5mA, 63=38mA)
 C2 = bitwise NOT of C1
 
-5 white values × 4 positions × 6 C1 values = 120 tests
+5 white values × 6 C1 values = 30 tests
 
 Press Enter to advance. SPI stays open for seamless transitions.
 
@@ -37,7 +32,6 @@ NUM_LEDS = 4
 
 WHITE_VALUES = [1, 64, 128, 192, 255]
 C1_VALUES = [0, 1, 16, 32, 48, 63]
-POSITION_NAMES = ["W", "R", "G", "B"]
 
 
 def encode_byte_4bit(value):
@@ -77,22 +71,18 @@ def build_tests():
     tests = []
     for w_val in WHITE_VALUES:
         pixel = (w_val, 0, 0, 0)
-        for pos in range(4):
-            for c1_val in C1_VALUES:
-                c1 = [0, 0, 0, 0]
-                c1[pos] = c1_val
-                c2 = [b ^ 0xFF for b in c1]
-                current_ma = 6.5 + c1_val * 0.5
-                tests.append({
-                    "w_val": w_val,
-                    "c1_val": c1_val,
-                    "pos": pos,
-                    "pos_name": POSITION_NAMES[pos],
-                    "current_ma": current_ma,
-                    "c1": c1,
-                    "c2": c2,
-                    "pixels": [pixel] * NUM_LEDS,
-                })
+        for c1_val in C1_VALUES:
+            c1 = [c1_val, 0, 0, 0]
+            c2 = [b ^ 0xFF for b in c1]
+            current_ma = 6.5 + c1_val * 0.5
+            tests.append({
+                "w_val": w_val,
+                "c1_val": c1_val,
+                "current_ma": current_ma,
+                "c1": c1,
+                "c2": c2,
+                "pixels": [pixel] * NUM_LEDS,
+            })
     return tests
 
 
@@ -106,11 +96,10 @@ def main():
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
     print(f"  D1-D4: (W, 0, 0, 0) — only white channel active")
-    print(f"  C1: one position varied, other three = 0")
+    print(f"  C1: first position varied, other three = 0")
     print()
     print(f"  White values:  {WHITE_VALUES}")
-    print(f"  C1 values:     {C1_VALUES}")
-    print(f"  C1 positions:  {POSITION_NAMES}")
+    print(f"  C1[0] values:  {C1_VALUES}")
     print(f"  Total tests:   {total}")
     print()
     print("  Press Enter to advance. Ctrl+C to quit.")
@@ -154,7 +143,6 @@ def main():
     old_settings = termios.tcgetattr(fd)
 
     current_section_w = None
-    current_section_pos = None
 
     try:
         tty.setraw(fd)
@@ -166,19 +154,12 @@ def main():
                 current_section_w = t["w_val"]
                 sys.stdout.write(
                     f"\r\n  === D1-D4: W={current_section_w} R=0 G=0 B=0 "
-                    f"===\r\n")
-                current_section_pos = None
-
-            if t["pos"] != current_section_pos:
-                current_section_pos = t["pos"]
-                sys.stdout.write(
-                    f"\r\n    -- C1 position {t['pos_name']} "
-                    f"(6 tests) --\r\n")
+                    f"(6 tests) ===\r\n")
 
             sys.stdout.write(
-                f"\r\n  [{i+1:>3}/{total}] "
+                f"\r\n  [{i+1:>2}/{total}] "
                 f"W={t['w_val']:>3}  "
-                f"C1[{t['pos_name']}]={t['c1_val']:>2} "
+                f"C1[0]={t['c1_val']:>2} "
                 f"({t['current_ma']:.1f}mA)  "
                 f"C1={fmt_c(t['c1'])}\r\n")
             if i < total - 1:
@@ -201,9 +182,9 @@ def main():
         spi.close()
         print(f"\n  Done — {total} tests completed.")
         print("  Questions:")
-        print("    1. Did changing C1[W] affect white LED brightness?")
-        print("    2. Did changing C1[R], C1[G], or C1[B] have any effect?")
-        print("    3. Was the effect linear across C1 values 0->63?")
+        print("    1. Did changing C1[0] affect white LED brightness?")
+        print("    2. Was the effect linear across C1 values 0->63?")
+        print("    3. At which C1 value is the brightness change most visible?")
 
 
 if __name__ == "__main__":
