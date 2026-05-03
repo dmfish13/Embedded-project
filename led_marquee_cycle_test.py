@@ -9,6 +9,7 @@ Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
 
 Keys:
   Color keys  — select a solid color (stops any active mode)
+  [p] Power   — toggle LEDs on/off (saves/restores last setting)
   [6] Fade    — crossfade between random colors (1.5s fade, 0.5s hold)
   [7] Dimmer  — cycle brightness (solid/chaser only)
   [8] Strobe  — switch to random color every 1.25s
@@ -89,7 +90,7 @@ def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
 OFF = (0, 0, 0, 0)
 NEUTRAL_WHITE = (255, 0, 0, 0)
 
-# (key, name, WRGB tuple) — Off uses None
+# (key, name, WRGB tuple)
 COLOR_MAP = [
     ('1', "Deep Red",              (0,   150, 5,   5)),
     ('2', "Mint",                  (0,   0,   225, 120)),
@@ -111,8 +112,10 @@ COLOR_MAP = [
     ('n', "Neutral White ~4000K",  (255, 0,   0,   0)),
     ('m', "Cool White ~5000K",     (217, 0,   64,  128)),
     (',', "Daylight ~6500K",       (178, 0,   128, 255)),
-    ('p', "Off",                   None),
 ]
+
+# Power button — toggles LEDs on/off, saves/restores last setting
+POWER = ('p', "Power Button")
 
 ELIGIBLE_COLORS = [
     wrgb for _, name, wrgb in COLOR_MAP
@@ -196,11 +199,11 @@ def main():
     print()
     print("  Color keys:")
     for key, name, wrgb in COLOR_MAP:
-        if wrgb is None:
-            print(f"    [{key}]  {name}")
-        else:
-            w, r, g, b = wrgb
-            print(f"    [{key}]  {name:.<30s} W={w:>3} R={r:>3} G={g:>3} B={b:>3}")
+        w, r, g, b = wrgb
+        print(f"    [{key}]  {name:.<30s} W={w:>3} R={r:>3} G={g:>3} B={b:>3}")
+    print()
+    print(f"  Power:")
+    print(f"    [{POWER[0]}]  {POWER[1]} — toggle on/off")
     print()
     print("  Mode keys:")
     print(f"    [6]  Fade     — crossfade random colors "
@@ -222,6 +225,7 @@ def main():
     print("=" * 70)
 
     color_keys = {key for key, _, _ in COLOR_MAP}
+    power_key = POWER[0]
     key_to_name = {key: name for key, name, _ in COLOR_MAP}
     key_to_wrgb = {key: wrgb for key, _, wrgb in COLOR_MAP}
 
@@ -238,6 +242,8 @@ def main():
     current_wrgb = None
     active_mode = None
     preset_idx = 0
+    power_on = False
+    saved_setting = None
 
     state = {'buf': build_solid_buf(None, 1.0), 'running': True}
     lock = threading.Lock()
@@ -428,8 +434,8 @@ def main():
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
     spi_thread.start()
 
-    print(f"  Active: Off | Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f}")
-    print(f"  Press a key to select a color...\n")
+    print(f"  Power: OFF | Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f}")
+    print(f"  Press [{power_key}] to power on...\n")
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -440,7 +446,74 @@ def main():
             if ch == '\x03':
                 break
 
-            if ch == '6':
+            if ch == power_key:
+                if power_on:
+                    saved_setting = {
+                        'wrgb': current_wrgb,
+                        'mode': active_mode,
+                        'dimmer_idx': dimmer_idx,
+                        'preset_idx': preset_idx,
+                    }
+                    stop_mode()
+                    current_wrgb = None
+                    with lock:
+                        state['buf'] = build_solid_buf(None, 1.0)
+                    power_on = False
+                    sys.stdout.write("  Power: OFF\r\n")
+                    sys.stdout.flush()
+                else:
+                    power_on = True
+                    if saved_setting:
+                        dimmer_idx = saved_setting['dimmer_idx']
+                        preset_idx = saved_setting['preset_idx']
+                        mode = saved_setting['mode']
+                        if mode:
+                            if mode == 'preset':
+                                start_mode('preset',
+                                           preset_idx=preset_idx)
+                            elif mode in ('fade', 'strobe'):
+                                start_mode(mode,
+                                           saved_setting['wrgb'])
+                            else:
+                                start_mode(mode)
+                            sys.stdout.write(
+                                f"  Power: ON ({mode})\r\n")
+                        else:
+                            current_wrgb = saved_setting['wrgb']
+                            with lock:
+                                state['buf'] = build_solid_buf(
+                                    current_wrgb,
+                                    DIMMER_STEPS[dimmer_idx])
+                            sys.stdout.write(
+                                f"  Power: ON "
+                                f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})"
+                                f"\r\n")
+                    else:
+                        current_wrgb = NEUTRAL_WHITE
+                        with lock:
+                            state['buf'] = build_solid_buf(
+                                current_wrgb,
+                                DIMMER_STEPS[dimmer_idx])
+                        sys.stdout.write(
+                            f"  Power: ON (Neutral White)\r\n")
+                    sys.stdout.flush()
+
+            elif ch in color_keys:
+                power_on = True
+                stop_mode()
+                current_wrgb = key_to_wrgb[ch]
+                with lock:
+                    state['buf'] = build_solid_buf(
+                        current_wrgb, DIMMER_STEPS[dimmer_idx])
+                sys.stdout.write(
+                    f"  → {key_to_name[ch]} "
+                    f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})\r\n")
+                sys.stdout.flush()
+
+            elif not power_on:
+                continue
+
+            elif ch == '6':
                 sc = current_wrgb if (
                     active_mode is None and current_wrgb) else None
                 start_mode('fade', sc)
@@ -494,17 +567,6 @@ def main():
                 start_mode('preset', preset_idx=preset_idx)
                 name = PRESETS[preset_idx][0]
                 sys.stdout.write(f"  Preset: {name}\r\n")
-                sys.stdout.flush()
-
-            elif ch in color_keys:
-                stop_mode()
-                current_wrgb = key_to_wrgb[ch]
-                with lock:
-                    state['buf'] = build_solid_buf(
-                        current_wrgb, DIMMER_STEPS[dimmer_idx])
-                sys.stdout.write(
-                    f"  → {key_to_name[ch]} "
-                    f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})\r\n")
                 sys.stdout.flush()
 
     finally:
