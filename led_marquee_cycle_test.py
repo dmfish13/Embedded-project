@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PCB1 color selector with dimming, fade, strobe, and marquee chaser.
+PCB1 color selector with multiple lighting modes.
 
 Uses the same format as led_c1c2_test.py Section 5 baseline:
   4-bit encoding @ 2.0 MHz, C1=[0x20,0x20,0x20,0x20], 4 pixels.
@@ -10,9 +10,11 @@ Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
 Keys:
   Color keys  — select a solid color (stops any active mode)
   [6] Fade    — crossfade between random colors (1.5s fade, 0.5s hold)
-  [7] Dimmer  — cycle brightness (disabled during Fade/Strobe)
+  [7] Dimmer  — cycle brightness (solid/chaser only)
   [8] Strobe  — switch to random color every 1.25s
   [9] Chaser  — colors chase through PCBs every 0.25s
+  [0] Theater — every-3rd-PCB chase in Neutral White (0.3s step)
+  [-] Twinkle — independent fade-through-off color changes per PCB
   Ctrl+C      — quit
 
 Random colors are chosen from the 16 eligible colors (15 RGB + Neutral
@@ -45,6 +47,13 @@ FADE_STEP_INTERVAL = 0.03
 
 STROBE_INTERVAL = 1.25
 CHASER_INTERVAL = 0.35
+THEATER_INTERVAL = 0.3
+
+TWINKLE_FADE_DOWN = 1.25
+TWINKLE_FADE_UP = 1.25
+TWINKLE_HOLD = 0.5
+TWINKLE_TICK = 0.03
+TWINKLE_COLOR_COUNT = 200
 
 
 def encode_byte_4bit(value):
@@ -75,6 +84,9 @@ def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
     buf += b'\xFF' * reset_bytes
     return buf
 
+
+OFF = (0, 0, 0, 0)
+NEUTRAL_WHITE = (255, 0, 0, 0)
 
 # (key, name, WRGB tuple) — Off uses None
 COLOR_MAP = [
@@ -110,13 +122,11 @@ ELIGIBLE_COLORS = [
 
 
 def pick_random(exclude=None):
-    """Pick a random eligible color different from exclude."""
     choices = [c for c in ELIGIBLE_COLORS if c != exclude]
     return random.choice(choices)
 
 
 def lerp_pixel(a, b, t):
-    """Linear interpolation between two WRGB tuples."""
     return (
         int(a[0] + (b[0] - a[0]) * t),
         int(a[1] + (b[1] - a[1]) * t),
@@ -136,20 +146,20 @@ def dim_pixel(wrgb, dimmer):
 
 def build_solid_buf(wrgb, dimmer):
     if wrgb is None:
-        pixel = (0, 0, 0, 0)
+        pixel = OFF
     else:
         pixel = dim_pixel(wrgb, dimmer)
     return list(build_frame(C1, C2, [pixel] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET))
 
 
-def build_multi_buf(pcb_colors, dimmer):
-    pixels = [dim_pixel(c, dimmer) for c in pcb_colors]
-    return list(build_frame(C1, C2, pixels, LUT_4BIT, reset_bytes=RESET))
+def build_multi_buf(pcb_pixels):
+    return list(build_frame(C1, C2, pcb_pixels, LUT_4BIT, reset_bytes=RESET))
 
 
 def main():
-    print("=" * 68)
-    print("  PCB1 Color Selector — Dimming / Fade / Strobe / Chaser")
+    print("=" * 70)
+    print("  PCB Color Selector — Solid / Fade / Strobe / Chaser / "
+          "Theater / Twinkle")
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
@@ -164,16 +174,19 @@ def main():
             print(f"    [{key}]  {name:.<30s} W={w:>3} R={r:>3} G={g:>3} B={b:>3}")
     print()
     print("  Mode keys:")
-    print(f"    [6]  Fade    — crossfade random colors "
+    print(f"    [6]  Fade     — crossfade random colors "
           f"({FADE_DURATION}s fade, {FADE_HOLD}s hold)")
-    print(f"    [7]  Dimmer  — cycle 1.0 → 0.9 → ... → 0.1 → 1.0 "
+    print(f"    [7]  Dimmer   — cycle 1.0 → 0.1 → 1.0 "
           f"(solid/chaser only)")
-    print(f"    [8]  Strobe  — random color every {STROBE_INTERVAL}s")
-    print(f"    [9]  Chaser  — colors chase through PCBs every "
+    print(f"    [8]  Strobe   — random color every {STROBE_INTERVAL}s")
+    print(f"    [9]  Chaser   — colors chase through PCBs every "
           f"{CHASER_INTERVAL}s")
+    print(f"    [0]  Theater  — every-3rd-PCB chase, Neutral White "
+          f"({THEATER_INTERVAL}s step)")
+    print(f"    [-]  Twinkle  — independent fade-through-off per PCB")
     print()
     print("  Ctrl+C to quit.")
-    print("=" * 68)
+    print("=" * 70)
 
     color_keys = {key for key, _, _ in COLOR_MAP}
     key_to_name = {key: name for key, name, _ in COLOR_MAP}
@@ -189,9 +202,8 @@ def main():
     print(f"\n  SPI: requested {SPEED/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
 
     dimmer_idx = 9
-    current_color_key = 'p'
     current_wrgb = None
-    active_mode = None  # None, 'fade', 'strobe', 'chaser'
+    active_mode = None
 
     state = {'buf': build_solid_buf(None, 1.0), 'running': True}
     lock = threading.Lock()
@@ -204,7 +216,7 @@ def main():
                 buf = state['buf']
             spi.xfer2(buf[:])
 
-    # --- Fade loop ---
+    # --- Fade ---
     def fade_loop(start_color):
         current = start_color
         while not mode_stop.is_set():
@@ -222,7 +234,7 @@ def main():
             if mode_stop.wait(FADE_HOLD):
                 return
 
-    # --- Strobe loop ---
+    # --- Strobe ---
     def strobe_loop(start_color):
         current = start_color
         with lock:
@@ -232,19 +244,108 @@ def main():
             with lock:
                 state['buf'] = build_solid_buf(current, 1.0)
 
-    # --- Chaser loop ---
+    # --- Chaser ---
     def chaser_loop():
         dim = DIMMER_STEPS[dimmer_idx]
         pcb_colors = [pick_random() for _ in range(NUM_LEDS)]
         with lock:
-            state['buf'] = build_multi_buf(pcb_colors, dim)
+            state['buf'] = build_multi_buf(
+                [dim_pixel(c, dim) for c in pcb_colors])
         while not mode_stop.wait(CHASER_INTERVAL):
             dim = DIMMER_STEPS[dimmer_idx]
             for i in range(NUM_LEDS - 1, 0, -1):
                 pcb_colors[i] = pcb_colors[i - 1]
             pcb_colors[0] = pick_random()
             with lock:
-                state['buf'] = build_multi_buf(pcb_colors, dim)
+                state['buf'] = build_multi_buf(
+                    [dim_pixel(c, dim) for c in pcb_colors])
+
+    # --- Theater Chase ---
+    def theater_loop():
+        offset = 0
+        while not mode_stop.is_set():
+            pixels = []
+            for n in range(NUM_LEDS):
+                if n % 3 == offset:
+                    pixels.append(NEUTRAL_WHITE)
+                else:
+                    pixels.append(OFF)
+            with lock:
+                state['buf'] = build_multi_buf(pixels)
+            if mode_stop.wait(THEATER_INTERVAL):
+                return
+            offset = (offset + 1) % 3
+
+    # --- Twinkle ---
+    def twinkle_loop():
+        # Pre-generate all random values at init
+        pcb_colors = []
+        pcb_sequences = []
+        pcb_delays = []
+        for _ in range(NUM_LEDS):
+            start_color = pick_random()
+            pcb_colors.append(start_color)
+            seq = [start_color]
+            prev = start_color
+            for _ in range(TWINKLE_COLOR_COUNT):
+                nxt = pick_random(exclude=prev)
+                seq.append(nxt)
+                prev = nxt
+            pcb_sequences.append(seq)
+            pcb_delays.append(random.uniform(1.0, 4.0))
+
+        # Phase tracking per PCB
+        # Phases: 'delay', 'fade_down', 'fade_up', 'hold'
+        pcb_phase = ['delay'] * NUM_LEDS
+        pcb_phase_elapsed = [0.0] * NUM_LEDS
+        pcb_seq_idx = [0] * NUM_LEDS
+        pcb_current_pixel = list(pcb_colors)
+
+        with lock:
+            state['buf'] = build_multi_buf(pcb_current_pixel)
+
+        while not mode_stop.is_set():
+            time.sleep(TWINKLE_TICK)
+            if mode_stop.is_set():
+                return
+
+            for p in range(NUM_LEDS):
+                pcb_phase_elapsed[p] += TWINKLE_TICK
+                phase = pcb_phase[p]
+                elapsed = pcb_phase_elapsed[p]
+
+                if phase == 'delay':
+                    if elapsed >= pcb_delays[p]:
+                        pcb_phase[p] = 'fade_down'
+                        pcb_phase_elapsed[p] = 0.0
+
+                elif phase == 'fade_down':
+                    t = min(elapsed / TWINKLE_FADE_DOWN, 1.0)
+                    src = pcb_sequences[p][pcb_seq_idx[p]]
+                    pcb_current_pixel[p] = lerp_pixel(src, OFF, t)
+                    if elapsed >= TWINKLE_FADE_DOWN:
+                        pcb_seq_idx[p] += 1
+                        if pcb_seq_idx[p] >= len(pcb_sequences[p]):
+                            pcb_seq_idx[p] = 1
+                        pcb_phase[p] = 'fade_up'
+                        pcb_phase_elapsed[p] = 0.0
+
+                elif phase == 'fade_up':
+                    t = min(elapsed / TWINKLE_FADE_UP, 1.0)
+                    dst = pcb_sequences[p][pcb_seq_idx[p]]
+                    pcb_current_pixel[p] = lerp_pixel(OFF, dst, t)
+                    if elapsed >= TWINKLE_FADE_UP:
+                        pcb_current_pixel[p] = dst
+                        pcb_phase[p] = 'hold'
+                        pcb_phase_elapsed[p] = 0.0
+
+                elif phase == 'hold':
+                    if elapsed >= TWINKLE_HOLD:
+                        pcb_phase[p] = 'fade_down'
+                        pcb_phase_elapsed[p] = 0.0
+
+            with lock:
+                state['buf'] = build_multi_buf(pcb_current_pixel)
 
     def stop_mode():
         nonlocal active_mode, mode_thread
@@ -270,6 +371,12 @@ def main():
         elif mode == 'chaser':
             mode_thread = threading.Thread(
                 target=chaser_loop, daemon=True)
+        elif mode == 'theater':
+            mode_thread = threading.Thread(
+                target=theater_loop, daemon=True)
+        elif mode == 'twinkle':
+            mode_thread = threading.Thread(
+                target=twinkle_loop, daemon=True)
         mode_thread.start()
 
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
@@ -295,7 +402,8 @@ def main():
                 sys.stdout.flush()
 
             elif ch == '7':
-                if active_mode in ('fade', 'strobe'):
+                if active_mode in (
+                        'fade', 'strobe', 'theater', 'twinkle'):
                     continue
                 if dimmer_idx == 0:
                     dimmer_idx = 9
@@ -321,9 +429,18 @@ def main():
                 sys.stdout.write("  Chaser: ON\r\n")
                 sys.stdout.flush()
 
+            elif ch == '0':
+                start_mode('theater')
+                sys.stdout.write("  Theater Chase: ON\r\n")
+                sys.stdout.flush()
+
+            elif ch == '-':
+                start_mode('twinkle')
+                sys.stdout.write("  Twinkle: ON\r\n")
+                sys.stdout.flush()
+
             elif ch in color_keys:
                 stop_mode()
-                current_color_key = ch
                 current_wrgb = key_to_wrgb[ch]
                 with lock:
                     state['buf'] = build_solid_buf(
