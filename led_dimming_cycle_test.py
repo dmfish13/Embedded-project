@@ -101,8 +101,8 @@ def build_all_bufs():
                     int(wrgb[3] * dim),
                 )
             for ci, c1_val in enumerate(C1_CURRENT_STEPS):
-                c1 = [c1_val, 0x1E, 0x1E, 0x1E]
-                c2 = [c1_val ^ 0xFF, 0xE1, 0xE1, 0xE1]
+                c1 = [c1_val, 0x20, 0x20, 0x20]
+                c2 = [c1_val ^ 0xFF, 0xDF, 0xDF, 0xDF]
                 buf = build_frame(c1, c2, [pixel] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET)
                 bufs[(key, di, ci)] = list(buf)
     return bufs
@@ -114,7 +114,7 @@ def main():
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
-    print("  C1[0] = white current (variable), C1[1-3] = 0x1E")
+    print("  C1[0] = white current (variable), C1[1-3] = 0x20")
     print()
     print("  Key assignments:")
     for key, name, wrgb in COLOR_MAP:

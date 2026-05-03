@@ -76,8 +76,8 @@ COLOR_MAP = [
     ('p', "Off",                   None),
 ]
 
-C1 = [0x1E, 0x1E, 0x1E, 0x1E]
-C2 = [0xE1, 0xE1, 0xE1, 0xE1]
+C1 = [0x20, 0x20, 0x20, 0x20]
+C2 = [0xDF, 0xDF, 0xDF, 0xDF]
 SPEED = 2_000_000
 RESET = 80
 
@@ -98,7 +98,7 @@ def main():
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
-    print("  C1=[0x1E, 0x1E, 0x1E, 0x1E]  C2=[0xE1, 0xE1, 0xE1, 0xE1]")
+    print("  C1=[0x20, 0x20, 0x20, 0x20]  C2=[0xDF, 0xDF, 0xDF, 0xDF]")
     print()
     print("  Key assignments:")
     for key, name, wrgb in COLOR_MAP:
