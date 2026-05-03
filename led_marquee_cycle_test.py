@@ -141,6 +141,7 @@ DARK_BLUE = (0, 0, 0, 139)
 PRESET_COLOR_NAMES = {
     FOREST_GREEN: "Forest Green",
     IRISH_GREEN: "Irish Green",
+    NEUTRAL_WHITE: "Neutral White",
     WARM_WHITE: "Warm White",
     DEEP_RED: "Deep Red",
     COOL_WHITE: "Cool White",
@@ -150,7 +151,7 @@ PRESET_COLOR_NAMES = {
 }
 
 PRESETS = [
-    ("Christmas",       [WARM_WHITE, FOREST_GREEN, DEEP_RED]),
+    ("Christmas",       [NEUTRAL_WHITE, FOREST_GREEN, DEEP_RED]),
     ("St Patrick's Day", [IRISH_GREEN, COOL_WHITE, ORANGE]),
     ("4th of July",     [RED_PRIME, COOL_WHITE, DARK_BLUE]),
     ("Canada",          [DEEP_RED, COOL_WHITE, DEEP_RED]),
