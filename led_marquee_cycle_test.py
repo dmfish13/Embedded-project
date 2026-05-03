@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """
-PCB1 color selector with dimming and marquee chaser.
+PCB1 color selector with dimming, fade, strobe, and marquee chaser.
 
 Uses the same format as led_c1c2_test.py Section 5 baseline:
   4-bit encoding @ 2.0 MHz, C1=[0x20,0x20,0x20,0x20], 4 pixels.
 
 Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
-All four D(n) PWM values are multiplied by the dimmer before output.
 
-Press a color key to switch colors. Press [7] to cycle the dimmer.
-Press [8] to start/stop the chaser — colors chase through all 4 PCBs
-in a random pattern, shifting every 0.25s. Ctrl+C to quit.
+Keys:
+  Color keys  — select a solid color (stops any active mode)
+  [6] Fade    — crossfade between random colors (1.5s fade, 0.5s hold)
+  [7] Dimmer  — cycle brightness (disabled during Fade/Strobe)
+  [8] Strobe  — switch to random color every 1.25s
+  [9] Chaser  — colors chase through PCBs every 0.25s
+  Ctrl+C      — quit
+
+Random colors are chosen from the 16 eligible colors (15 RGB + Neutral
+White, excluding Candlelight, Warm White, Cool White, Daylight).
 
 Usage:
     python3 led_marquee_cycle_test.py
@@ -32,6 +38,13 @@ C1 = [0x20, 0x20, 0x20, 0x20]
 C2 = [0xDF, 0xDF, 0xDF, 0xDF]
 SPEED = 2_000_000
 RESET = 80
+
+FADE_DURATION = 1.5
+FADE_HOLD = 0.5
+FADE_STEP_INTERVAL = 0.03
+
+STROBE_INTERVAL = 1.25
+CHASER_INTERVAL = 0.25
 
 
 def encode_byte_4bit(value):
@@ -88,13 +101,28 @@ COLOR_MAP = [
     ('p', "Off",                   None),
 ]
 
-# Chaser-eligible colors: all RGB colors + Neutral White only
-CHASER_COLORS = [
+ELIGIBLE_COLORS = [
     wrgb for _, name, wrgb in COLOR_MAP
     if wrgb is not None and name not in (
         "Candlelight ~1800K", "Warm White ~3000K",
-        "Cool White ~5000K", "Daylight ~6500K", "Off")
+        "Cool White ~5000K", "Daylight ~6500K")
 ]
+
+
+def pick_random(exclude=None):
+    """Pick a random eligible color different from exclude."""
+    choices = [c for c in ELIGIBLE_COLORS if c != exclude]
+    return random.choice(choices)
+
+
+def lerp_pixel(a, b, t):
+    """Linear interpolation between two WRGB tuples."""
+    return (
+        int(a[0] + (b[0] - a[0]) * t),
+        int(a[1] + (b[1] - a[1]) * t),
+        int(a[2] + (b[2] - a[2]) * t),
+        int(a[3] + (b[3] - a[3]) * t),
+    )
 
 
 def dim_pixel(wrgb, dimmer):
@@ -107,7 +135,6 @@ def dim_pixel(wrgb, dimmer):
 
 
 def build_solid_buf(wrgb, dimmer):
-    """Build frame with all PCBs showing the same dimmed color."""
     if wrgb is None:
         pixel = (0, 0, 0, 0)
     else:
@@ -115,21 +142,20 @@ def build_solid_buf(wrgb, dimmer):
     return list(build_frame(C1, C2, [pixel] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET))
 
 
-def build_chaser_buf(pcb_colors, dimmer):
-    """Build frame with each PCB showing a different dimmed color."""
+def build_multi_buf(pcb_colors, dimmer):
     pixels = [dim_pixel(c, dimmer) for c in pcb_colors]
     return list(build_frame(C1, C2, pixels, LUT_4BIT, reset_bytes=RESET))
 
 
 def main():
     print("=" * 68)
-    print("  PCB1 Color Selector with Dimming + Marquee Chaser")
+    print("  PCB1 Color Selector — Dimming / Fade / Strobe / Chaser")
     print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
     print("  C1=[0x20, 0x20, 0x20, 0x20]  C2=[0xDF, 0xDF, 0xDF, 0xDF]")
     print()
-    print("  Key assignments:")
+    print("  Color keys:")
     for key, name, wrgb in COLOR_MAP:
         if wrgb is None:
             print(f"    [{key}]  {name}")
@@ -137,8 +163,14 @@ def main():
             w, r, g, b = wrgb
             print(f"    [{key}]  {name:.<30s} W={w:>3} R={r:>3} G={g:>3} B={b:>3}")
     print()
-    print(f"    [7]  Dimmer (cycles 1.0 → 0.9 → ... → 0.1 → 1.0)")
-    print(f"    [8]  Chaser (toggle on/off — random colors chase through PCBs)")
+    print("  Mode keys:")
+    print(f"    [6]  Fade    — crossfade random colors "
+          f"({FADE_DURATION}s fade, {FADE_HOLD}s hold)")
+    print(f"    [7]  Dimmer  — cycle 1.0 → 0.9 → ... → 0.1 → 1.0 "
+          f"(solid/chaser only)")
+    print(f"    [8]  Strobe  — random color every {STROBE_INTERVAL}s")
+    print(f"    [9]  Chaser  — colors chase through PCBs every "
+          f"{CHASER_INTERVAL}s")
     print()
     print("  Ctrl+C to quit.")
     print("=" * 68)
@@ -157,15 +189,14 @@ def main():
     print(f"\n  SPI: requested {SPEED/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
 
     dimmer_idx = 9
-    current_color = 'p'
-    chaser_active = False
+    current_color_key = 'p'
+    current_wrgb = None
+    active_mode = None  # None, 'fade', 'strobe', 'chaser'
 
     state = {'buf': build_solid_buf(None, 1.0), 'running': True}
     lock = threading.Lock()
-
-    # Chaser state: colors for each PCB (D1..D4)
-    pcb_colors = [random.choice(CHASER_COLORS) for _ in range(NUM_LEDS)]
-    chaser_stop = threading.Event()
+    mode_stop = threading.Event()
+    mode_thread = None
 
     def spi_loop():
         while state['running']:
@@ -173,25 +204,76 @@ def main():
                 buf = state['buf']
             spi.xfer2(buf[:])
 
+    # --- Fade loop ---
+    def fade_loop(start_color):
+        current = start_color
+        while not mode_stop.is_set():
+            target = pick_random(exclude=current)
+            steps = int(FADE_DURATION / FADE_STEP_INTERVAL)
+            for i in range(steps + 1):
+                if mode_stop.is_set():
+                    return
+                t = i / steps
+                pixel = lerp_pixel(current, target, t)
+                with lock:
+                    state['buf'] = build_solid_buf(pixel, 1.0)
+                time.sleep(FADE_STEP_INTERVAL)
+            current = target
+            if mode_stop.wait(FADE_HOLD):
+                return
+
+    # --- Strobe loop ---
+    def strobe_loop(start_color):
+        current = start_color
+        with lock:
+            state['buf'] = build_solid_buf(current, 1.0)
+        while not mode_stop.wait(STROBE_INTERVAL):
+            current = pick_random(exclude=current)
+            with lock:
+                state['buf'] = build_solid_buf(current, 1.0)
+
+    # --- Chaser loop ---
     def chaser_loop():
         dim = DIMMER_STEPS[dimmer_idx]
-        # Initial: all PCBs get random colors
-        for i in range(NUM_LEDS):
-            pcb_colors[i] = random.choice(CHASER_COLORS)
+        pcb_colors = [pick_random() for _ in range(NUM_LEDS)]
         with lock:
-            state['buf'] = build_chaser_buf(pcb_colors, dim)
-        while not chaser_stop.wait(0.25):
+            state['buf'] = build_multi_buf(pcb_colors, dim)
+        while not mode_stop.wait(CHASER_INTERVAL):
             dim = DIMMER_STEPS[dimmer_idx]
-            # Shift: D4←D3, D3←D2, D2←D1, D1←new random
             for i in range(NUM_LEDS - 1, 0, -1):
                 pcb_colors[i] = pcb_colors[i - 1]
-            pcb_colors[0] = random.choice(CHASER_COLORS)
+            pcb_colors[0] = pick_random()
             with lock:
-                state['buf'] = build_chaser_buf(pcb_colors, dim)
+                state['buf'] = build_multi_buf(pcb_colors, dim)
+
+    def stop_mode():
+        nonlocal active_mode, mode_thread
+        if mode_thread:
+            mode_stop.set()
+            mode_thread.join(timeout=2)
+            mode_thread = None
+        active_mode = None
+        mode_stop.clear()
+
+    def start_mode(mode, start_color=None):
+        nonlocal active_mode, mode_thread
+        stop_mode()
+        active_mode = mode
+        if mode == 'fade':
+            sc = start_color if start_color else pick_random()
+            mode_thread = threading.Thread(
+                target=fade_loop, args=(sc,), daemon=True)
+        elif mode == 'strobe':
+            sc = start_color if start_color else pick_random()
+            mode_thread = threading.Thread(
+                target=strobe_loop, args=(sc,), daemon=True)
+        elif mode == 'chaser':
+            mode_thread = threading.Thread(
+                target=chaser_loop, daemon=True)
+        mode_thread.start()
 
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
     spi_thread.start()
-    chaser_thread = None
 
     print(f"  Active: Off | Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f}")
     print(f"  Press a key to select a color...\n")
@@ -204,60 +286,60 @@ def main():
             ch = sys.stdin.read(1)
             if ch == '\x03':
                 break
-            if ch == '7':
+
+            if ch == '6':
+                sc = current_wrgb if (
+                    active_mode is None and current_wrgb) else None
+                start_mode('fade', sc)
+                sys.stdout.write("  Fade: ON\r\n")
+                sys.stdout.flush()
+
+            elif ch == '7':
+                if active_mode in ('fade', 'strobe'):
+                    continue
                 if dimmer_idx == 0:
                     dimmer_idx = 9
                 else:
                     dimmer_idx -= 1
                 dim = DIMMER_STEPS[dimmer_idx]
-                if not chaser_active:
+                if active_mode is None:
                     with lock:
                         state['buf'] = build_solid_buf(
-                            key_to_wrgb[current_color], dim)
-                sys.stdout.write(
-                    f"  Dimmer: {dim:.1f}\r\n")
+                            current_wrgb, dim)
+                sys.stdout.write(f"  Dimmer: {dim:.1f}\r\n")
                 sys.stdout.flush()
+
             elif ch == '8':
-                if chaser_active:
-                    chaser_stop.set()
-                    if chaser_thread:
-                        chaser_thread.join(timeout=1)
-                    chaser_active = False
-                    with lock:
-                        state['buf'] = build_solid_buf(
-                            key_to_wrgb[current_color],
-                            DIMMER_STEPS[dimmer_idx])
-                    sys.stdout.write("  Chaser: OFF\r\n")
-                    sys.stdout.flush()
-                else:
-                    chaser_active = True
-                    chaser_stop.clear()
-                    chaser_thread = threading.Thread(
-                        target=chaser_loop, daemon=True)
-                    chaser_thread.start()
-                    sys.stdout.write("  Chaser: ON\r\n")
-                    sys.stdout.flush()
+                sc = current_wrgb if (
+                    active_mode is None and current_wrgb) else None
+                start_mode('strobe', sc)
+                sys.stdout.write("  Strobe: ON\r\n")
+                sys.stdout.flush()
+
+            elif ch == '9':
+                start_mode('chaser')
+                sys.stdout.write("  Chaser: ON\r\n")
+                sys.stdout.flush()
+
             elif ch in color_keys:
-                if chaser_active:
-                    chaser_stop.set()
-                    if chaser_thread:
-                        chaser_thread.join(timeout=1)
-                    chaser_active = False
-                current_color = ch
+                stop_mode()
+                current_color_key = ch
+                current_wrgb = key_to_wrgb[ch]
                 with lock:
                     state['buf'] = build_solid_buf(
-                        key_to_wrgb[ch], DIMMER_STEPS[dimmer_idx])
+                        current_wrgb, DIMMER_STEPS[dimmer_idx])
                 sys.stdout.write(
                     f"  → {key_to_name[ch]} "
                     f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})\r\n")
                 sys.stdout.flush()
+
     finally:
-        chaser_stop.set()
+        mode_stop.set()
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         state['running'] = False
         spi_thread.join(timeout=1)
-        if chaser_thread:
-            chaser_thread.join(timeout=1)
+        if mode_thread:
+            mode_thread.join(timeout=1)
         spi.close()
         print("\n  Stopped.")
 
