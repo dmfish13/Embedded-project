@@ -10,8 +10,10 @@ Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
 Keys:
   Color keys  — select a solid color (stops any active mode)
   [p] Power   — toggle LEDs on/off (saves/restores last setting)
+  [y] Color 1 — next color key sets odd PCBs (D1, D3, ...)
+  [u] Color 2 — next color key sets even PCBs (D2, D4, ...)
   [6] Fade    — crossfade between random colors (1.5s fade, 0.5s hold)
-  [7] Dimmer  — cycle brightness (solid/chaser only)
+  [7] Dimmer  — cycle brightness (solid/dual/chaser only)
   [8] Strobe  — switch to random color every 1.25s
   [9] Chaser  — colors chase through PCBs every 0.25s
   [0] Theater — every-3rd-PCB chase in Neutral White (0.3s step)
@@ -188,6 +190,17 @@ def build_multi_buf(pcb_pixels):
     return list(build_frame(C1, C2, pcb_pixels, LUT_4BIT, reset_bytes=RESET))
 
 
+def build_dual_buf(color1, color2, dimmer):
+    pixels = []
+    for n in range(NUM_LEDS):
+        if n % 2 == 0:
+            c = color1 if color1 else OFF
+        else:
+            c = color2 if color2 else OFF
+        pixels.append(dim_pixel(c, dimmer))
+    return list(build_frame(C1, C2, pixels, LUT_4BIT, reset_bytes=RESET))
+
+
 def main():
     print("=" * 70)
     print("  PCB Color Selector — Solid / Fade / Strobe / Chaser / "
@@ -205,11 +218,15 @@ def main():
     print(f"  Power:")
     print(f"    [{POWER[0]}]  {POWER[1]} — toggle on/off")
     print()
+    print("  Dual-Color:")
+    print(f"    [y]  Color 1  — next color key sets odd PCBs (D1, D3)")
+    print(f"    [u]  Color 2  — next color key sets even PCBs (D2, D4)")
+    print()
     print("  Mode keys:")
     print(f"    [6]  Fade     — crossfade random colors "
           f"({FADE_DURATION}s fade, {FADE_HOLD}s hold)")
     print(f"    [7]  Dimmer   — cycle 1.0 → 0.1 → 1.0 "
-          f"(solid/chaser only)")
+          f"(solid/dual/chaser only)")
     print(f"    [8]  Strobe   — random color every {STROBE_INTERVAL}s")
     print(f"    [9]  Chaser   — colors chase through PCBs every "
           f"{CHASER_INTERVAL}s")
@@ -228,6 +245,7 @@ def main():
     power_key = POWER[0]
     key_to_name = {key: name for key, name, _ in COLOR_MAP}
     key_to_wrgb = {key: wrgb for key, _, wrgb in COLOR_MAP}
+    wrgb_to_name = {wrgb: name for _, name, wrgb in COLOR_MAP}
 
     spi = SpiDev()
     spi.open(1, 0)
@@ -244,6 +262,9 @@ def main():
     preset_idx = 0
     power_on = False
     saved_setting = None
+    pending_slot = None
+    dual_color1 = None
+    dual_color2 = None
 
     state = {'buf': build_solid_buf(None, 1.0), 'running': True}
     lock = threading.Lock()
@@ -453,6 +474,8 @@ def main():
                         'mode': active_mode,
                         'dimmer_idx': dimmer_idx,
                         'preset_idx': preset_idx,
+                        'dual_color1': dual_color1,
+                        'dual_color2': dual_color2,
                     }
                     stop_mode()
                     current_wrgb = None
@@ -466,8 +489,18 @@ def main():
                     if saved_setting:
                         dimmer_idx = saved_setting['dimmer_idx']
                         preset_idx = saved_setting['preset_idx']
+                        dual_color1 = saved_setting['dual_color1']
+                        dual_color2 = saved_setting['dual_color2']
                         mode = saved_setting['mode']
-                        if mode:
+                        if mode == 'dual':
+                            active_mode = 'dual'
+                            with lock:
+                                state['buf'] = build_dual_buf(
+                                    dual_color1, dual_color2,
+                                    DIMMER_STEPS[dimmer_idx])
+                            sys.stdout.write(
+                                f"  Power: ON (dual)\r\n")
+                        elif mode:
                             if mode == 'preset':
                                 start_mode('preset',
                                            preset_idx=preset_idx)
@@ -500,20 +533,57 @@ def main():
 
             elif ch in color_keys:
                 power_on = True
-                stop_mode()
-                current_wrgb = key_to_wrgb[ch]
-                with lock:
-                    state['buf'] = build_solid_buf(
-                        current_wrgb, DIMMER_STEPS[dimmer_idx])
-                sys.stdout.write(
-                    f"  → {key_to_name[ch]} "
-                    f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})\r\n")
+                wrgb = key_to_wrgb[ch]
+                if pending_slot:
+                    slot = pending_slot
+                    pending_slot = None
+                    if slot == 'color1':
+                        dual_color1 = wrgb
+                    else:
+                        dual_color2 = wrgb
+                    stop_mode()
+                    active_mode = 'dual'
+                    dim = DIMMER_STEPS[dimmer_idx]
+                    with lock:
+                        state['buf'] = build_dual_buf(
+                            dual_color1, dual_color2, dim)
+                    c1n = wrgb_to_name.get(dual_color1, '—')
+                    c2n = wrgb_to_name.get(dual_color2, '—')
+                    sys.stdout.write(
+                        f"  Dual: C1={c1n}, C2={c2n} "
+                        f"(dim {dim:.1f})\r\n")
+                else:
+                    stop_mode()
+                    dual_color1 = None
+                    dual_color2 = None
+                    current_wrgb = wrgb
+                    with lock:
+                        state['buf'] = build_solid_buf(
+                            current_wrgb, DIMMER_STEPS[dimmer_idx])
+                    sys.stdout.write(
+                        f"  → {key_to_name[ch]} "
+                        f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})\r\n")
                 sys.stdout.flush()
 
             elif not power_on:
                 continue
 
+            elif ch == 'y':
+                pending_slot = 'color1'
+                sys.stdout.write(
+                    "  Color 1: select a color for odd PCBs "
+                    "(D1, D3)...\r\n")
+                sys.stdout.flush()
+
+            elif ch == 'u':
+                pending_slot = 'color2'
+                sys.stdout.write(
+                    "  Color 2: select a color for even PCBs "
+                    "(D2, D4)...\r\n")
+                sys.stdout.flush()
+
             elif ch == '6':
+                dimmer_idx = 9
                 sc = current_wrgb if (
                     active_mode is None and current_wrgb) else None
                 start_mode('fade', sc)
@@ -530,7 +600,11 @@ def main():
                 else:
                     dimmer_idx -= 1
                 dim = DIMMER_STEPS[dimmer_idx]
-                if active_mode is None:
+                if active_mode == 'dual':
+                    with lock:
+                        state['buf'] = build_dual_buf(
+                            dual_color1, dual_color2, dim)
+                elif active_mode is None:
                     with lock:
                         state['buf'] = build_solid_buf(
                             current_wrgb, dim)
@@ -538,6 +612,7 @@ def main():
                 sys.stdout.flush()
 
             elif ch == '8':
+                dimmer_idx = 9
                 sc = current_wrgb if (
                     active_mode is None and current_wrgb) else None
                 start_mode('strobe', sc)
@@ -545,21 +620,25 @@ def main():
                 sys.stdout.flush()
 
             elif ch == '9':
+                dimmer_idx = 9
                 start_mode('chaser')
                 sys.stdout.write("  Chaser: ON\r\n")
                 sys.stdout.flush()
 
             elif ch == '0':
+                dimmer_idx = 9
                 start_mode('theater')
                 sys.stdout.write("  Theater Chase: ON\r\n")
                 sys.stdout.flush()
 
             elif ch == '-':
+                dimmer_idx = 9
                 start_mode('twinkle')
                 sys.stdout.write("  Twinkle: ON\r\n")
                 sys.stdout.flush()
 
             elif ch == '=':
+                dimmer_idx = 9
                 if active_mode == 'preset':
                     preset_idx = (preset_idx + 1) % len(PRESETS)
                 else:
