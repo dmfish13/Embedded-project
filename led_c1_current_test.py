@@ -28,7 +28,7 @@ import termios
 import threading
 from spidev import SpiDev
 
-NUM_LEDS = 4
+NUM_LEDS = 6
 
 WHITE_VALUES = [1, 26, 51, 77, 102, 128, 153, 179, 204, 230, 255]
 C1_VALUES = [0, 1, 16, 32, 48, 63]
@@ -92,7 +92,7 @@ def main():
 
     print("=" * 72)
     print("  C1 Current Test — White LED only")
-    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
+    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4 → PCB5 → PCB6")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
     print(f"  D1-D4: (W, 0, 0, 0) — only white channel active")

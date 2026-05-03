@@ -19,7 +19,7 @@ import termios
 import threading
 from spidev import SpiDev
 
-NUM_LEDS = 4
+NUM_LEDS = 6
 
 
 def encode_byte_4bit(value):
@@ -95,7 +95,7 @@ def build_all_bufs():
 def main():
     print("=" * 68)
     print("  PCB1 Color Selector — press a key to switch color")
-    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
+    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4 → PCB5 → PCB6")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
     print("  C1=[0x20, 0x20, 0x20, 0x20]  C2=[0xDF, 0xDF, 0xDF, 0xDF]")

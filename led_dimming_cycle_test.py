@@ -21,7 +21,7 @@ import termios
 import threading
 from spidev import SpiDev
 
-NUM_LEDS = 4
+NUM_LEDS = 6
 
 DIMMER_STEPS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
@@ -108,7 +108,7 @@ def build_all_bufs():
 def main():
     print("=" * 68)
     print("  PCB1 Color Selector with Dimming")
-    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
+    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4 → PCB5 → PCB6")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
     print("  C1=[0x1E, 0x1E, 0x1E, 0x1E]  C2=[0xE1, 0xE1, 0xE1, 0xE1]")

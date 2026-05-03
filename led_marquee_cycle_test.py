@@ -10,8 +10,8 @@ Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
 Keys:
   Color keys  — select a solid color (stops any active mode)
   [p] Power   — toggle LEDs on/off (saves/restores last setting)
-  [y] Color 1 — next color key sets odd PCBs (D1, D3, ...)
-  [u] Color 2 — next color key sets even PCBs (D2, D4, ...)
+  [y] Color 1 — next color key sets odd PCBs (D1, D3, D5)
+  [u] Color 2 — next color key sets even PCBs (D2, D4, D6)
   [j] 2-hour  — auto power-off after 2 hours
   [k] 4-hour  — auto power-off after 4 hours
   [6] Fade    — crossfade between random colors (1.5s fade, 0.5s hold)
@@ -38,7 +38,7 @@ import random
 import threading
 from spidev import SpiDev
 
-NUM_LEDS = 4
+NUM_LEDS = 6
 
 DIMMER_STEPS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
@@ -207,7 +207,7 @@ def main():
     print("=" * 70)
     print("  PCB Color Selector — Solid / Fade / Strobe / Chaser / "
           "Theater / Twinkle / Preset")
-    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
+    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4 → PCB5 → PCB6")
     print()
     print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
     print("  C1=[0x20, 0x20, 0x20, 0x20]  C2=[0xDF, 0xDF, 0xDF, 0xDF]")
@@ -221,8 +221,8 @@ def main():
     print(f"    [{POWER[0]}]  {POWER[1]} — toggle on/off")
     print()
     print("  Dual-Color:")
-    print(f"    [y]  Color 1  — next color key sets odd PCBs (D1, D3)")
-    print(f"    [u]  Color 2  — next color key sets even PCBs (D2, D4)")
+    print(f"    [y]  Color 1  — next color key sets odd PCBs (D1, D3, D5)")
+    print(f"    [u]  Color 2  — next color key sets even PCBs (D2, D4, D6)")
     print()
     print("  Timers:")
     print(f"    [j]  2-hour   — auto power-off after 2 hours")
@@ -626,14 +626,14 @@ def main():
                 pending_slot = 'color1'
                 sys.stdout.write(
                     "  Color 1: select a color for odd PCBs "
-                    "(D1, D3)...\r\n")
+                    "(D1, D3, D5)...\r\n")
                 sys.stdout.flush()
 
             elif ch == 'u':
                 pending_slot = 'color2'
                 sys.stdout.write(
                     "  Color 2: select a color for even PCBs "
-                    "(D2, D4)...\r\n")
+                    "(D2, D4, D6)...\r\n")
                 sys.stdout.flush()
 
             elif ch == 'j':
