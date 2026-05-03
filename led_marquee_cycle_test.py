@@ -12,6 +12,8 @@ Keys:
   [p] Power   — toggle LEDs on/off (saves/restores last setting)
   [y] Color 1 — next color key sets odd PCBs (D1, D3, ...)
   [u] Color 2 — next color key sets even PCBs (D2, D4, ...)
+  [j] 2-hour  — auto power-off after 2 hours
+  [k] 4-hour  — auto power-off after 4 hours
   [6] Fade    — crossfade between random colors (1.5s fade, 0.5s hold)
   [7] Dimmer  — cycle brightness (solid/dual/chaser only)
   [8] Strobe  — switch to random color every 1.25s
@@ -222,6 +224,10 @@ def main():
     print(f"    [y]  Color 1  — next color key sets odd PCBs (D1, D3)")
     print(f"    [u]  Color 2  — next color key sets even PCBs (D2, D4)")
     print()
+    print("  Timers:")
+    print(f"    [j]  2-hour   — auto power-off after 2 hours")
+    print(f"    [k]  4-hour   — auto power-off after 4 hours")
+    print()
     print("  Mode keys:")
     print(f"    [6]  Fade     — crossfade random colors "
           f"({FADE_DURATION}s fade, {FADE_HOLD}s hold)")
@@ -265,6 +271,9 @@ def main():
     pending_slot = None
     dual_color1 = None
     dual_color2 = None
+    timer_thread = None
+    timer_cancel = threading.Event()
+    timer_label = None
 
     state = {'buf': build_solid_buf(None, 1.0), 'running': True}
     lock = threading.Lock()
@@ -452,6 +461,50 @@ def main():
                 target=preset_loop, args=(preset_idx,), daemon=True)
         mode_thread.start()
 
+    def cancel_timer():
+        nonlocal timer_thread, timer_label
+        if timer_thread:
+            timer_cancel.set()
+            timer_thread.join(timeout=1)
+            timer_thread = None
+            timer_label = None
+        timer_cancel.clear()
+
+    def timer_fire():
+        nonlocal power_on, saved_setting, current_wrgb
+        nonlocal timer_thread, timer_label
+        if not power_on:
+            timer_thread = None
+            timer_label = None
+            return
+        saved_setting = {
+            'wrgb': current_wrgb,
+            'mode': active_mode,
+            'dimmer_idx': dimmer_idx,
+            'preset_idx': preset_idx,
+            'dual_color1': dual_color1,
+            'dual_color2': dual_color2,
+        }
+        stop_mode()
+        current_wrgb = None
+        with lock:
+            state['buf'] = build_solid_buf(None, 1.0)
+        power_on = False
+        timer_thread = None
+        timer_label = None
+        sys.stdout.write("  Timer expired — Power: OFF\r\n")
+        sys.stdout.flush()
+
+    def start_timer(hours, label):
+        nonlocal timer_thread, timer_label
+        cancel_timer()
+        timer_label = label
+        def _wait():
+            if not timer_cancel.wait(hours * 3600):
+                timer_fire()
+        timer_thread = threading.Thread(target=_wait, daemon=True)
+        timer_thread.start()
+
     spi_thread = threading.Thread(target=spi_loop, daemon=True)
     spi_thread.start()
 
@@ -477,6 +530,7 @@ def main():
                         'dual_color1': dual_color1,
                         'dual_color2': dual_color2,
                     }
+                    cancel_timer()
                     stop_mode()
                     current_wrgb = None
                     with lock:
@@ -582,6 +636,16 @@ def main():
                     "(D2, D4)...\r\n")
                 sys.stdout.flush()
 
+            elif ch == 'j':
+                start_timer(2, "2-hour")
+                sys.stdout.write("  Timer: 2-hour\r\n")
+                sys.stdout.flush()
+
+            elif ch == 'k':
+                start_timer(4, "4-hour")
+                sys.stdout.write("  Timer: 4-hour\r\n")
+                sys.stdout.flush()
+
             elif ch == '6':
                 dimmer_idx = 9
                 sc = current_wrgb if (
@@ -649,6 +713,7 @@ def main():
                 sys.stdout.flush()
 
     finally:
+        cancel_timer()
         mode_stop.set()
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         state['running'] = False
