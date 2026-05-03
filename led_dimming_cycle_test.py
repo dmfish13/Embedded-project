@@ -1,197 +1,205 @@
+#!/usr/bin/env python3
 """
-Button map for the Jasco QOBRGBXYZA 25-button membrane keypad remote.
+PCB1 color selector with dimming — 20 colors + off, selected by keyboard.
 
-Each button is mapped with:
-  - label: Human-readable button name
-  - hex:   Placeholder for the raw RF payload captured by the scanner
-  - wrgb:  Default WRGB tuple (W, R, G, B) for color buttons; None for function buttons
+Uses the same format as led_c1c2_test.py Section 5 baseline:
+  4-bit encoding @ 2.0 MHz, C1=[0x1E,0x1E,0x1E,0x1E], 4 pixels.
 
-Once the RF scanner captures real payloads, replace the placeholder hex values
-with the actual captured bytes.
+Colors are WRGB tuples (W, R, G, B) matching TM1815B frame order.
+All four D1 PWM values are multiplied by the dimmer before output.
+
+Press a color key to switch colors. Press [7] to cycle the dimmer
+(1.0 → 0.9 → ... → 0.1 → 1.0). Ctrl+C to quit.
+
+Usage:
+    python3 led_dimming_cycle_test.py
 """
 
-# WRGB tuples: (White, Red, Green, Blue) -- values 0-255
-BUTTON_MAP = {
-    # --- Row 1: Function buttons ---
-    "Power": {
-        "label": "Power",
-        "hex": None,  # placeholder -- fill after RF capture
-        "wrgb": None,
-    },
-    "Fade": {
-        "label": "Fade",
-        "hex": None,
-        "wrgb": None,
-    },
-    "Dimming": {
-        "label": "Dimming",
-        "hex": None,
-        "wrgb": None,
-    },
-    "Strobe": {
-        "label": "Strobe",
-        "hex": None,
-        "wrgb": None,
-    },
+import sys
+import tty
+import termios
+import threading
+from spidev import SpiDev
 
-    # --- Row 2: Mixed function / color ---
-    "Color1": {
-        "label": "Color1",
-        "hex": None,
-        "wrgb": None,
-    },
-    "2-hour": {
-        "label": "2-hour Timer",
-        "hex": None,
-        "wrgb": None,
-    },
-    "Color2": {
-        "label": "Color2",
-        "hex": None,
-        "wrgb": None,
-    },
-    "4-hour": {
-        "label": "4-hour Timer",
-        "hex": None,
-        "wrgb": None,
-    },
+NUM_LEDS = 4
 
-    # --- Row 3: Function + colors ---
-    "Modes": {
-        "label": "Modes",
-        "hex": None,
-        "wrgb": None,
-    },
-    "Deep_Red": {
-        "label": "Deep Red",
-        "hex": None,
-        "wrgb": (0, 180, 0, 0),
-    },
-    "Mint": {
-        "label": "Mint",
-        "hex": None,
-        "wrgb": (0, 0, 225, 120),
-    },
-    "Dark_Blue": {
-        "label": "Dark Blue",
-        "hex": None,
-        "wrgb": (0, 0, 0, 139),
-    },
-
-    # --- Row 4: Colors ---
-    "Red_Prime": {
-        "label": "Red Prime",
-        "hex": None,
-        "wrgb": (0, 255, 0, 0),
-    },
-    "Orange": {
-        "label": "Orange",
-        "hex": None,
-        "wrgb": (0, 255, 100, 0),
-    },
-    "Light_Blue": {
-        "label": "Light Blue",
-        "hex": None,
-        "wrgb": (0, 100, 150, 255),
-    },
-    "Violet": {
-        "label": "Violet",
-        "hex": None,
-        "wrgb": (0, 148, 0, 211),
-    },
-
-    # --- Row 5: Colors ---
-    "Green_Prime": {
-        "label": "Green Prime",
-        "hex": None,
-        "wrgb": (0, 0, 255, 0),
-    },
-    "Golden_Rod": {
-        "label": "Golden Rod",
-        "hex": None,
-        "wrgb": (0, 218, 148, 0),
-    },
-    "Cyan": {
-        "label": "Cyan",
-        "hex": None,
-        "wrgb": (0, 0, 255, 255),
-    },
-    "Purple": {
-        "label": "Purple",
-        "hex": None,
-        "wrgb": (0, 128, 0, 128),
-    },
-
-    # --- Row 6: Colors ---
-    "Blue_Prime": {
-        "label": "Blue Prime",
-        "hex": None,
-        "wrgb": (0, 0, 0, 255),
-    },
-    "Yellow": {
-        "label": "Yellow",
-        "hex": None,
-        "wrgb": (0, 255, 230, 0),
-    },
-    "Steel_Blue": {
-        "label": "Steel Blue",
-        "hex": None,
-        "wrgb": (0, 70, 130, 180),
-    },
-    "Magenta": {
-        "label": "Magenta",
-        "hex": None,
-        "wrgb": (0, 255, 0, 255),
-    },
-
-    # --- Row 7: White ---
-    "White_Select": {
-        "label": "White Select",
-        "hex": None,
-        "wrgb": (255, 0, 0, 0),
-    },
-}
+DIMMER_STEPS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 
-def lookup_by_hex(payload_hex):
-    """Look up a button entry by its captured hex payload.
-
-    Args:
-        payload_hex: Hex string of the captured RF payload.
-
-    Returns:
-        The matching button dict, or None if no match.
-    """
-    for key, btn in BUTTON_MAP.items():
-        if btn["hex"] is not None and btn["hex"] == payload_hex:
-            return btn
-    return None
+def encode_byte_4bit(value):
+    encoded = 0
+    for bit_pos in range(7, -1, -1):
+        if value & (1 << bit_pos):
+            encoded = (encoded << 4) | 0b0001
+        else:
+            encoded = (encoded << 4) | 0b0111
+    return bytes([
+        (encoded >> 24) & 0xFF, (encoded >> 16) & 0xFF,
+        (encoded >> 8) & 0xFF, encoded & 0xFF,
+    ])
 
 
-def get_wrgb(button_key):
-    """Return the WRGB tuple for a given button key.
-
-    Args:
-        button_key: String key from BUTTON_MAP (e.g. "Red_Prime").
-
-    Returns:
-        Tuple of (W, R, G, B) or None if the button has no color.
-    """
-    btn = BUTTON_MAP.get(button_key)
-    if btn is None:
-        return None
-    return btn["wrgb"]
+LUT_4BIT = [encode_byte_4bit(v) for v in range(256)]
 
 
-def list_buttons():
-    """Print all buttons and their current hex mappings."""
-    print(f"{'#':<4} {'Key':<16} {'Label':<18} {'Hex':<20} {'WRGB'}")
-    print("-" * 75)
-    for i, (key, btn) in enumerate(BUTTON_MAP.items(), start=1):
-        hex_str = btn["hex"] if btn["hex"] else "(not captured)"
-        wrgb_str = str(btn["wrgb"]) if btn["wrgb"] else "(function btn)"
-        print(f"{i:<4} {key:<16} {btn['label']:<18} {hex_str:<20} {wrgb_str}")
+def build_frame(c1_bytes, c2_bytes, pixels, lut, reset_bytes=80):
+    """Build a TM1815B frame: [Reset][C1][C2][D1..Dn][Reset]"""
+    buf = bytearray(b'\xFF' * reset_bytes)
+    for bv in c1_bytes:
+        buf += lut[bv]
+    for bv in c2_bytes:
+        buf += lut[bv]
+    for w, r, g, b in pixels:
+        buf += lut[w] + lut[r] + lut[g] + lut[b]
+    buf += b'\xFF' * reset_bytes
+    return buf
+
+
+# (key, name, WRGB tuple) — Off uses None
+COLOR_MAP = [
+    ('1', "Deep Red",              (0,   180, 0,   0)),
+    ('2', "Mint",                  (0,   0,   225, 120)),
+    ('3', "Dark Blue",             (0,   0,   0,   139)),
+    ('4', "Red Prime",             (0,   255, 0,   0)),
+    ('q', "Orange",                (0,   255, 100, 0)),
+    ('w', "Light Blue",            (0,   100, 150, 255)),
+    ('e', "Violet",                (0,   148, 0,   211)),
+    ('r', "Green Prime",           (0,   0,   255, 0)),
+    ('a', "Golden Rod",            (0,   218, 148, 0)),
+    ('s', "Cyan",                  (0,   0,   255, 255)),
+    ('d', "Purple",                (0,   128, 0,   128)),
+    ('f', "Blue Prime",            (0,   0,   0,   255)),
+    ('z', "Yellow",                (0,   255, 230, 0)),
+    ('x', "Steel Blue",            (0,   70,  130, 180)),
+    ('c', "Magenta",               (0,   255, 0,   255)),
+    ('v', "Candlelight ~1800K",    (76,  255, 128, 0)),
+    ('b', "Warm White ~3000K",     (154, 180, 77,  0)),
+    ('n', "Neutral White ~4000K",  (255, 0,   0,   0)),
+    ('m', "Cool White ~5000K",     (217, 0,   64,  128)),
+    (',', "Daylight ~6500K",       (178, 0,   128, 255)),
+    ('p', "Off",                   None),
+]
+
+C1 = [0x1E, 0x1E, 0x1E, 0x1E]
+C2 = [0xE1, 0xE1, 0xE1, 0xE1]
+SPEED = 2_000_000
+RESET = 80
+
+
+def build_all_bufs():
+    """Pre-build frame buffers for every color × dimmer combination."""
+    bufs = {}
+    for key, name, wrgb in COLOR_MAP:
+        for di, dim in enumerate(DIMMER_STEPS):
+            if wrgb is None:
+                pixel = (0, 0, 0, 0)
+            else:
+                pixel = (
+                    int(wrgb[0] * dim),
+                    int(wrgb[1] * dim),
+                    int(wrgb[2] * dim),
+                    int(wrgb[3] * dim),
+                )
+            buf = build_frame(C1, C2, [pixel] * NUM_LEDS, LUT_4BIT, reset_bytes=RESET)
+            bufs[(key, di)] = list(buf)
+    return bufs
+
+
+def main():
+    print("=" * 68)
+    print("  PCB1 Color Selector with Dimming")
+    print(f"  {NUM_LEDS} PCBs: PCB1 → PCB2 → PCB3 → PCB4")
+    print()
+    print("  Format: 4-bit encoding @ 2.0 MHz (Section 5 baseline)")
+    print("  C1=[0x1E, 0x1E, 0x1E, 0x1E]  C2=[0xE1, 0xE1, 0xE1, 0xE1]")
+    print()
+    print("  Key assignments:")
+    for key, name, wrgb in COLOR_MAP:
+        if wrgb is None:
+            print(f"    [{key}]  {name}")
+        else:
+            w, r, g, b = wrgb
+            print(f"    [{key}]  {name:.<30s} W={w:>3} R={r:>3} G={g:>3} B={b:>3}")
+    print()
+    print(f"    [7]  Dimmer (cycles 1.0 → 0.9 → ... → 0.1 → 1.0)")
+    print()
+    print("  Ctrl+C to quit.")
+    print("=" * 68)
+
+    for j in range(4):
+        if C2[j] != (C1[j] ^ 0xFF):
+            print(f"  *** ERROR: C2[{j}]=0x{C2[j]:02X} is NOT "
+                  f"~C1[{j}]=0x{C1[j]:02X} "
+                  f"(expected 0x{C1[j] ^ 0xFF:02X}) ***")
+            sys.exit(1)
+
+    bufs = build_all_bufs()
+    color_keys = {key for key, _, _ in COLOR_MAP}
+    key_to_name = {key: name for key, name, _ in COLOR_MAP}
+
+    spi = SpiDev()
+    spi.open(1, 0)
+    spi.max_speed_hz = SPEED
+    actual = spi.max_speed_hz
+    spi.mode = 0b00
+    spi.lsbfirst = False
+
+    print(f"\n  SPI: requested {SPEED/1e6:.1f} MHz, actual {actual/1e6:.3f} MHz")
+
+    dimmer_idx = 9  # 1.0
+    current_color = 'p'
+
+    state = {'buf': bufs[('p', dimmer_idx)], 'running': True}
+    lock = threading.Lock()
+
+    def spi_loop():
+        while state['running']:
+            with lock:
+                buf = state['buf']
+            spi.xfer2(buf[:])
+
+    spi_thread = threading.Thread(target=spi_loop, daemon=True)
+    spi_thread.start()
+
+    print(f"  Active: Off | Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f}")
+    print(f"  Press a key to select a color...\n")
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        while True:
+            ch = sys.stdin.read(1)
+            if ch == '\x03':
+                break
+            if ch == '7':
+                if dimmer_idx == 0:
+                    dimmer_idx = 9
+                else:
+                    dimmer_idx -= 1
+                with lock:
+                    state['buf'] = bufs[(current_color, dimmer_idx)]
+                sys.stdout.write(
+                    f"  Dimmer: {DIMMER_STEPS[dimmer_idx]:.1f}\r\n")
+                sys.stdout.flush()
+            elif ch in color_keys:
+                current_color = ch
+                with lock:
+                    state['buf'] = bufs[(current_color, dimmer_idx)]
+                sys.stdout.write(
+                    f"  → {key_to_name[ch]} "
+                    f"(dim {DIMMER_STEPS[dimmer_idx]:.1f})\r\n")
+                sys.stdout.flush()
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        state['running'] = False
+        spi_thread.join(timeout=1)
+        spi.close()
+        print("\n  Stopped.")
 
 
 if __name__ == "__main__":
-    list_buttons()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n  Interrupted.")
