@@ -6,7 +6,7 @@ Uses the same format as led_c1c2_test.py Section 5 baseline:
   4-bit encoding @ 2.0 MHz, 4 pixels.
 
 Only the white LED is on (D1-D4 = (W, 0, 0, 0)).
-For each of 5 white levels, each of 6 C1 current values is tested
+For each of 11 white levels, each of 6 C1 current values is tested
 in the first C1 position, with positions 2-4 set to 0.
 
 Example: C1=[0,0,0,0], C1=[1,0,0,0], C1=[16,0,0,0] ... C1=[63,0,0,0]
@@ -14,7 +14,7 @@ Example: C1=[0,0,0,0], C1=[1,0,0,0], C1=[16,0,0,0] ... C1=[63,0,0,0]
 C1 byte format: bits[7:6]=00, bits[5:0]=current (0=6.5mA, 63=38mA)
 C2 = bitwise NOT of C1
 
-5 white values × 6 C1 values = 30 tests
+11 white values × 6 C1 values = 66 tests
 
 Press Enter to advance. SPI stays open for seamless transitions.
 
@@ -30,7 +30,7 @@ from spidev import SpiDev
 
 NUM_LEDS = 4
 
-WHITE_VALUES = [1, 64, 128, 192, 255]
+WHITE_VALUES = [1, 26, 51, 77, 102, 128, 153, 179, 204, 230, 255]
 C1_VALUES = [0, 1, 16, 32, 48, 63]
 
 
