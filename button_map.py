@@ -70,7 +70,7 @@ BUTTON_MAP = {
     "Mint": {
         "label": "Mint",
         "hex": None,
-        "wrgb": (0, 0, 200, 120),
+        "wrgb": (0, 0, 225, 120),
     },
     "Dark_Blue": {
         "label": "Dark Blue",
@@ -109,7 +109,7 @@ BUTTON_MAP = {
     "Golden_Rod": {
         "label": "Golden Rod",
         "hex": None,
-        "wrgb": (0, 218, 165, 0),
+        "wrgb": (0, 218, 148, 0),
     },
     "Cyan": {
         "label": "Cyan",
@@ -131,7 +131,7 @@ BUTTON_MAP = {
     "Yellow": {
         "label": "Yellow",
         "hex": None,
-        "wrgb": (0, 255, 255, 0),
+        "wrgb": (0, 255, 230, 0),
     },
     "Steel_Blue": {
         "label": "Steel Blue",
