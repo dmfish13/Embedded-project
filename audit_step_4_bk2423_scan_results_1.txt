@@ -1,0 +1,362 @@
+========================================================================
+  BK2423 / XN297 Address Discovery Scanner
+  Target: Jasco QOBRGBXYZA Remote on ch 42 @ 1 Mbps
+========================================================================
+
+  HOLD the POWER button continuously during the ENTIRE test.
+  Do NOT release until 'Done' appears.
+
+  Testing 218 configurations on channel 42
+  Estimated time: ~7 min 16 sec
+
+  Press Enter for 3-second NOISE baseline (don't press remote)...
+  Noise baseline: 0 packets in 3 seconds
+
+  Now HOLD the POWER button and press Enter...
+
+  [  3/218] RAW zeros 5B                        addr=[00 00 00 00 00]    14 pkts  (14 consistent) <<< ***
+         sample: EA26D5173FC794D92FD75F5E9FEB81AD...
+         sample: 0000000000A000000000000000000000...
+  [  4/218] RAW+BREV zeros 5B                   addr=[00 00 00 00 00]    13 pkts  (16 consistent) <<< ***
+         sample: DBFF81FA1F43FC1FFFF93FFF8BF9F3FF...
+         sample: 00000000000000000000000000000100...
+  [  8/218] SCR_B+BREV zeros 5B                 addr=[C7 8D D2 57 A1]    16 pkts  (3 consistent) <<< ***
+         sample: F0EF2C900FFA55CF51FC3BCB240898BA...
+         sample: F0EF2CD4E7B42ABA51B8FE1DE5925F7B...
+  [  9/218] RAW zeros 4B                        addr=[00 00 00 00]    23 pkts  (5 consistent) <<< ***
+         sample: 296A4D5410011151414A022442688010...
+         sample: 81082AA2EA092AEAAAAAFFEABAEFFFFF...
+  [ 10/218] RAW+BREV zeros 4B                   addr=[00 00 00 00]    18 pkts  (14 consistent) <<< ***
+         sample: 971643F33EFD7C99BB37F8A579952EAB...
+         sample: 00000000000000000000000000000000...
+  [ 14/218] SCR_B+BREV zeros 4B                 addr=[C7 8D D2 57]    31 pkts  (2 consistent) <<<
+         sample: E0EF77A15E3D92044C5D6C19A9CF6855...
+         sample: F0EF2C902262E93946A480898BAD8335...
+  [ 15/218] RAW zeros 3B                        addr=[00 00 00]    62 pkts  (6 consistent) <<< ***
+         sample: B3FD3A95D56BD49BAE65B6AAE6CD5F6D...
+         sample: 5405000000500005000554505400155E...
+  [ 16/218] RAW+BREV zeros 3B                   addr=[00 00 00]    46 pkts  (0 consistent) <<<
+         sample: EBFFFFFF3FCF9FFFFFFFFFBFFFFFFFFF...
+         sample: 442880615100900009640584409010A0...
+  [ 18/218] SCR_A+BREV zeros 3B                 addr=[C7 8D D2]    75 pkts  (1 consistent) <<<
+         sample: F0EE4055D71F0EF2C902262EB40CD4E7...
+         sample: C902262EA5C8E4361DE509ABC85ACA33...
+  [ 20/218] SCR_B+BREV zeros 3B                 addr=[C7 8D D2]    43 pkts  (0 consistent) <<<
+         sample: B9D75864157CD5D240AB061BAA5322F8...
+         sample: D4E7315F4A37965965B1A8B360810A98...
+  [ 50/218] ... scanning ...
+  [ 87/218] RAW AA55 pattern 3B                 addr=[AA 55 AA]    20 pkts  (0 consistent) <<<
+         sample: 54B6496BCA5B78C550A9506ABD5746D0...
+         sample: AE4A52BBE5ADB55B6BD4AA53653B4B6E...
+  [ 88/218] RAW+BREV AA55 pattern 3B            addr=[55 AA 55]    15 pkts  (0 consistent) <<<
+         sample: 444B5D5A12B2D52A6505D222BAAAD11A...
+         sample: AA6AB557DFFFFFFFFFFFFFFFFFFFFFFF...
+  [100/218] ... scanning ...
+  [105/218] RAW 55AA pattern 3B                 addr=[55 AA 55]    16 pkts  (0 consistent) <<<
+         sample: 4AAA9A7F7775BD75CAEAAE9AAABA900A...
+         sample: 6B5B52B5ADAAAAAAAC988EE555D6B2B1...
+  [106/218] RAW+BREV 55AA pattern 3B            addr=[AA 55 AA]    20 pkts  (0 consistent) <<<
+         sample: C0260B259042A00A8940044142189430...
+         sample: 6AC94A9355AA9121D48A9A5498A93444...
+  [150/218] ... scanning ...
+  [165/218] RAW all ones 5B                     addr=[FF FF FF FF FF]   324 pkts  (16 consistent) <<< ***
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFF5557FF...
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...
+  [166/218] RAW+BREV all ones 5B                addr=[FF FF FF FF FF]   299 pkts  (15 consistent) <<< ***
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFFFFF555...
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...
+  [170/218] SCR_B+BREV all ones 5B              addr=[38 72 2D A8 5E]    17 pkts  (7 consistent) <<< ***
+         sample: 0F118E16970611FC84A803682E7B5839...
+         sample: 0F10D36094957F0E3352C7C2ABCB2407...
+  [171/218] RAW all ones 4B                     addr=[FF FF FF FF]   390 pkts  (16 consistent) <<< ***
+         sample: FFDF7ED7B757F77EBFFFEFFBEBED0AAF...
+         sample: FFFDFFFFFFFFFFFFFFEFFFFFFFFFFFFF...
+  [172/218] RAW+BREV all ones 4B                addr=[FF FF FF FF]   346 pkts  (15 consistent) <<< ***
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...
+  [176/218] SCR_B+BREV all ones 4B              addr=[38 72 2D A8]    16 pkts  (8 consistent) <<< ***
+         sample: 2F10D36895957A0E273A061DF4A371F3...
+         sample: 0A00D26092947F2EFF2A8694770EF285...
+  [177/218] RAW all ones 3B                     addr=[FF FF FF]   364 pkts  (16 consistent) <<< ***
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...
+         sample: FFFDFFD6AAFFFD5FD5FFAAFD7FAAFD5F...
+  [178/218] RAW+BREV all ones 3B                addr=[FF FF FF]   425 pkts  (16 consistent) <<< ***
+         sample: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...
+         sample: FFFFFFFFFD7FBFFFB7FAFFFFFFDBFDBF...
+  [180/218] SCR_A+BREV all ones 3B              addr=[38 72 2D]    30 pkts  (8 consistent) <<< ***
+         sample: 0F118E16970611FC84A803682E7B5C12...
+         sample: 0F10D36094957F0E3AD1CA9CE7A42AF5...
+  [182/218] SCR_B+BREV all ones 3B              addr=[38 72 2D]    22 pkts  (16 consistent) <<< ***
+         sample: 0F10D36094957F0E3AD1CA9CE7B42AF5...
+         sample: 0F10D36094957F0E3AD1CA9CE5B42AF5...
+  [200/218] ... scanning ...
+
+========================================================================
+  HITS (significantly above noise):
+========================================================================
+
+  RAW+BREV all ones 3B
+    Address: [FF FF FF] (3B)
+    Packets: 425 (noise: 0)
+    Consistent positions: 16/16
+    Scramble: none, BitRev: True
+    Samples:
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFAFF
+      FFFFFFFFFD7FBFFFB7FAFFFFFFDBFDBFEFFFFFBD
+      FFFFFFFFD7FDDFFEAFB5BFD5FDFFFFFDFFEABFFF
+
+  RAW all ones 4B
+    Address: [FF FF FF FF] (4B)
+    Packets: 390 (noise: 0)
+    Consistent positions: 16/16
+    Scramble: none, BitRev: False
+    Samples:
+      FFDF7ED7B757F77EBFFFEFFBEBED0AAFA51B9208
+      FFFDFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFF
+      FFFFFFFFFFFFFFFFADFDE3FBD6BB735FAFFFBEDB
+
+  RAW all ones 3B
+    Address: [FF FF FF] (3B)
+    Packets: 364 (noise: 0)
+    Consistent positions: 16/16
+    Scramble: none, BitRev: False
+    Samples:
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF557FFF
+      FFFDFFD6AAFFFD5FD5FFAAFD7FAAFD5FFFFD5FFF
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD557FFFD
+
+  RAW all ones 5B
+    Address: [FF FF FF FF FF] (5B)
+    Packets: 324 (noise: 0)
+    Consistent positions: 16/16
+    Scramble: none, BitRev: False
+    Samples:
+      FFFFFFFFFFFFFFFFFFFFFFFFFF5557FFF557EB6B
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7F
+      FFFFFFFFF7FFFFFFFFFFFFFFFF7FBFFFFFFFFFFF
+
+  SCR_B+BREV all ones 3B
+    Address: [38 72 2D] (3B)
+    Packets: 22 (noise: 0)
+    Consistent positions: 16/16
+    Scramble: B, BitRev: True
+    Samples:
+      0F10D36094957F0E3AD1CA9CE7B42AF5416B91C0
+      -> descrambled: 1A8D77E34FA450FCD4993AD7F8EA363857DDF0C9
+      0F10D36094957F0E3AD1CA9CE5B42AF5416B91C0
+      -> descrambled: 1A8D77E34FA450FCD4993AD7B8EA363857DDF0C9
+      0D10D36094957F0E3AD1CA94E7B42AF5416B91C0
+      -> descrambled: 5A8D77E34FA450FCD4993AC7F8EA363857DDF0C9
+
+  RAW+BREV zeros 5B
+    Address: [00 00 00 00 00] (5B)
+    Packets: 13 (noise: 0)
+    Consistent positions: 16/16
+    Scramble: none, BitRev: True
+    Samples:
+      DBFF81FA1F43FC1FFFF93FFF8BF9F3FF83FFC080
+      0000000000000000000000000000010000002AA8
+      000000040000000000000000AAA00040000AAAA0
+
+  RAW+BREV all ones 4B
+    Address: [FF FF FF FF] (4B)
+    Packets: 346 (noise: 0)
+    Consistent positions: 15/16
+    Scramble: none, BitRev: True
+    Samples:
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB557FFEB
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEABFFF
+      EFDFFFFF6FF5FFF7FF7FFDFF7FFFFEBFFFFDFEFF
+
+  RAW+BREV all ones 5B
+    Address: [FF FF FF FF FF] (5B)
+    Packets: 299 (noise: 0)
+    Consistent positions: 15/16
+    Scramble: none, BitRev: True
+    Samples:
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFF5557FFEAAFE
+      FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF56FFFFFF
+      FFFFFFFFFFABDFFFFBFFDFFFFFFFFFBFEAFFFFF6
+
+  RAW+BREV zeros 4B
+    Address: [00 00 00 00] (4B)
+    Packets: 18 (noise: 0)
+    Consistent positions: 14/16
+    Scramble: none, BitRev: True
+    Samples:
+      971643F33EFD7C99BB37F8A579952EAB92B76EEA
+      0000000000000000000000000000000000000000
+      0020000000000000200000000000000000000002
+
+  RAW zeros 5B
+    Address: [00 00 00 00 00] (5B)
+    Packets: 14 (noise: 0)
+    Consistent positions: 14/16
+    Scramble: none, BitRev: False
+    Samples:
+      EA26D5173FC794D92FD75F5E9FEB81ADD234F57B
+      0000000000A00000000000000000000000000AAA
+      020000000000A8000000000000000000000002AA
+
+  SCR_A+BREV all ones 3B
+    Address: [38 72 2D] (3B)
+    Packets: 30 (noise: 0)
+    Consistent positions: 8/16
+    Scramble: A, BitRev: True
+    Samples:
+      0F118E16970611FC84A803682E7B5C128E6E91E7
+      -> descrambled: 824B660DC989AD1BE106C9A723B83A6950DD7C32
+      0F10D36094957F0E3AD1CA9CE7A42AF5416B91C0
+      -> descrambled: 82CBDC630940DB549C985A88B043548EA37D7CD6
+      0F10D36094957F0E273A061DF4A371F32B184BD5
+      -> descrambled: 82CBDC630940DB54244F690978A38EEEF5B3277E
+
+  SCR_B+BREV all ones 4B
+    Address: [38 72 2D A8] (4B)
+    Packets: 16 (noise: 0)
+    Consistent positions: 8/16
+    Scramble: B, BitRev: True
+    Samples:
+      2F10D36895957A0E273A061DF4A371F32A184BD5
+      -> descrambled: 71B42E70A407D2F8F6358EA7E8A7191A5F611867
+      0A00D26092947F2EFF2A8694770EF28552D5556A
+      -> descrambled: D5BCAE60448772FCED3D8F362912D87441D2609A
+      0F10D36094956F0E273A061DF4A271F32B184BD5
+      -> descrambled: 75B42E6024077AF8F6358EA7E827191ADF611867
+
+  SCR_B+BREV all ones 5B
+    Address: [38 72 2D A8 5E] (5B)
+    Packets: 17 (noise: 0)
+    Consistent positions: 7/16
+    Scramble: B, BitRev: True
+    Samples:
+      0F118E16970611FC84A803682E7B5839E8CD7DFE
+      -> descrambled: 4C6D176547EC002D48FBDFD11649CF976E797264
+      0F10D36094957F0E3352C7C2ABCB24078869B7EE
+      -> descrambled: 4CEDAD0B87257662A5A4FC84B744F1EB685C216C
+      0F10D36094955B0E3352C7C2ABCB24078869B7EE
+      -> descrambled: 4CEDAD0B87255262A5A4FC84B744F1EB685C216C
+
+  RAW zeros 3B
+    Address: [00 00 00] (3B)
+    Packets: 62 (noise: 0)
+    Consistent positions: 6/16
+    Scramble: none, BitRev: False
+    Samples:
+      B3FD3A95D56BD49BAE65B6AAE6CD5F6D6DBBB73A
+      5405000000500005000554505400155E52556972
+      A00A000000A0000A000550A8A000AD525656558A
+
+  RAW zeros 4B
+    Address: [00 00 00 00] (4B)
+    Packets: 23 (noise: 0)
+    Consistent positions: 5/16
+    Scramble: none, BitRev: False
+    Samples:
+      296A4D5410011151414A02244268801029405344
+      81082AA2EA092AEAAAAAFFEABAEFFFFFFFFFFFFF
+      0000000000000000000000000000000000000001
+
+  SCR_B+BREV zeros 5B
+    Address: [C7 8D D2 57 A1] (5B)
+    Packets: 16 (noise: 0)
+    Consistent positions: 3/16
+    Scramble: B, BitRev: True
+    Samples:
+      F0EF2C900FFA55CF51FC3BCB240898BAD833539E
+      -> descrambled: B31252045ED322E1E3D1C3144687CC5662060662
+      F0EF2CD4E7B42ABA51B8FE1DE5925F7B203360C9
+      -> descrambled: B312522649A1DC4FE3F3607FC5DE2FD57D06CA88
+      71648113175B044A73DA15CB4A26C1FC3BCA2408
+      -> descrambled: 32C3E7C54656A840A7B5B71430F35634A599E80B
+
+  SCR_B+BREV zeros 4B
+    Address: [C7 8D D2 57] (4B)
+    Packets: 31 (noise: 0)
+    Consistent positions: 2/16
+    Scramble: B, BitRev: True
+    Samples:
+      E0EF77A15E3D92044C5D6C19A9CF6855F4A371FC
+      -> descrambled: 824B0BE37712C5A820D3D8875291817F24BC44F3
+      F0EF2C902262E93946A480898BAD833539ED0ABE
+      -> descrambled: 8A4BD16F49E81B14704CEF8E16D7567997CE9AB1
+      F01D0078C28782C02E8B8FE1DE55DED0ABE9B8C8
+      -> descrambled: 8A04E5784E4FCD8B66B81F98BCC8ECDEDEEED7DF
+
+  SCR_A+BREV zeros 3B
+    Address: [C7 8D D2] (3B)
+    Packets: 75 (noise: 0)
+    Consistent positions: 1/16
+    Scramble: A, BitRev: True
+    Samples:
+      F0EE4055D71F0EF2C902262EB40CD4E7B42AFA51
+      -> descrambled: 7DB415CFCB11556B53536DC57A562BC60CFFAA5F
+      C902262EA5C8E4361DE509ABC85ACA3386C80C14
+      -> descrambled: E183731185FA024878B49964443C53ED40B8C5FD
+      F0EF2C942262EB61DE592044C5D6C19A9CF6A433
+      -> descrambled: 7D34234C64AFF2A2BB890D93F40D837818C4D019
+
+  RAW+BREV zeros 3B
+    Address: [00 00 00] (3B)
+    Packets: 46 (noise: 0)
+    Consistent positions: 0/16
+    Scramble: none, BitRev: True
+    Samples:
+      EBFFFFFF3FCF9FFFFFFFFFBFFFFFFFFFFFFFFFFF
+      442880615100900009640584409010A081324A00
+      5154A5544840A20020428149024441000AAA0A94
+
+  SCR_B+BREV zeros 3B
+    Address: [C7 8D D2] (3B)
+    Packets: 43 (noise: 0)
+    Consistent positions: 0/16
+    Scramble: B, BitRev: True
+    Samples:
+      B9D75864157CD5D240AB061BAA5322F86FE006C0
+      -> descrambled: 776EA6C3CE3305C78AC709364A0D2688230C19C9
+      D4E7315F4A37965965B1A8B360810A98771FD226
+      -> descrambled: C162301F34E1C7162E9F7C231946328E3BF332AE
+      CCAC612F54168F56BCDF4546E9F1A17E52946E29
+      -> descrambled: D9B03A114C655FE6B5E9CB8C8848E7E99F220F5E
+
+  RAW AA55 pattern 3B
+    Address: [AA 55 AA] (3B)
+    Packets: 20 (noise: 0)
+    Consistent positions: 0/16
+    Scramble: none, BitRev: False
+    Samples:
+      54B6496BCA5B78C550A9506ABD5746D0A649AD4F
+      AE4A52BBE5ADB55B6BD4AA53653B4B6EC535565A
+      D555A36BB752DA99415152B6EA84AB5211088229
+
+  RAW+BREV 55AA pattern 3B
+    Address: [AA 55 AA] (3B)
+    Packets: 20 (noise: 0)
+    Consistent positions: 0/16
+    Scramble: none, BitRev: True
+    Samples:
+      C0260B259042A00A8940044142189430D3168886
+      6AC94A9355AA9121D48A9A5498A934446A4DADD4
+      A495D2796AA97B764A9595555AAAB2AA812AAAAA
+
+  RAW 55AA pattern 3B
+    Address: [55 AA 55] (3B)
+    Packets: 16 (noise: 0)
+    Consistent positions: 0/16
+    Scramble: none, BitRev: False
+    Samples:
+      4AAA9A7F7775BD75CAEAAE9AAABA900A5227A213
+      6B5B52B5ADAAAAAAAC988EE555D6B2B149A5F3EB
+      552205452AA4354989AAD515754CD36252252B26
+
+  RAW+BREV AA55 pattern 3B
+    Address: [55 AA 55] (3B)
+    Packets: 15 (noise: 0)
+    Consistent positions: 0/16
+    Scramble: none, BitRev: True
+    Samples:
+      444B5D5A12B2D52A6505D222BAAAD11A9556EB54
+      AA6AB557DFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      4D2A1828EEA54AAD2E5CBAA6CB4555DAEAD9B54A
+
+Done.

@@ -1,0 +1,179 @@
+RF Channel Scan Results
+Date: Mon May  4 12:24:43 2026
+Dwell: 200ms per channel
+======================================================================
+
+    Ch      Freq    Idle  Active    Diff  Note
+  ------------------------------------------------------------
+     0  2400 MHz      44      35      -9  (less during press)
+     1  2401 MHz      18      21      +3  
+     2  2402 MHz       6      13      +7  << CANDIDATE
+     3  2403 MHz       5       9      +4  
+     4  2404 MHz       5       4      -1  
+     5  2405 MHz       5       9      +4  
+     6  2406 MHz      10      14      +4  
+     7  2407 MHz       5      21     +16  << CANDIDATE
+     8  2408 MHz       6      10      +4  
+     9  2409 MHz       4       9      +5  
+    10  2410 MHz       8       6      -2  
+    11  2411 MHz      11      10      -1  
+    12  2412 MHz       3      10      +7  << CANDIDATE
+    13  2413 MHz       9       9      +0  
+    14  2414 MHz       3       7      +4  
+    15  2415 MHz       6       8      +2  
+    16  2416 MHz       6      17     +11  << CANDIDATE
+    17  2417 MHz       9      10      +1  
+    18  2418 MHz      10       4      -6  (less during press)
+    19  2419 MHz       9       6      -3  
+    20  2420 MHz       6      16     +10  << CANDIDATE
+    21  2421 MHz       7       5      -2  
+    22  2422 MHz       7       3      -4  
+    23  2423 MHz      14      21      +7  << CANDIDATE
+    24  2424 MHz       5       4      -1  
+    25  2425 MHz      13       9      -4  
+    26  2426 MHz      33      21     -12  (less during press)
+    27  2427 MHz       7       7      +0  
+    28  2428 MHz      12       8      -4  
+    29  2429 MHz       9       8      -1  
+    30  2430 MHz       8       7      -1  
+    31  2431 MHz       9      11      +2  
+    32  2432 MHz       9       9      +0  
+    33  2433 MHz       9       4      -5  
+    34  2434 MHz       4      30     +26  << CANDIDATE
+    35  2435 MHz       6      36     +30  << CANDIDATE
+    36  2436 MHz      15      33     +18  << CANDIDATE
+    37  2437 MHz       4      10      +6  << CANDIDATE
+    38  2438 MHz       5      13      +8  << CANDIDATE
+    39  2439 MHz       4      16     +12  << CANDIDATE
+    40  2440 MHz      10      10      +0  
+    41  2441 MHz       9      10      +1  
+    42  2442 MHz       3      15     +12  << CANDIDATE
+    43  2443 MHz       9      16      +7  << CANDIDATE
+    44  2444 MHz      11      10      -1  
+    45  2445 MHz       9       8      -1  
+    46  2446 MHz       5      16     +11  << CANDIDATE
+    47  2447 MHz       3       9      +6  << CANDIDATE
+    48  2448 MHz       2       6      +4  
+    49  2449 MHz       6      10      +4  
+    50  2450 MHz      12      31     +19  << CANDIDATE
+    51  2451 MHz       5      40     +35  << CANDIDATE
+    52  2452 MHz       5      19     +14  << CANDIDATE
+    53  2453 MHz       7      11      +4  
+    54  2454 MHz      12       5      -7  (less during press)
+    55  2455 MHz       7      19     +12  << CANDIDATE
+    56  2456 MHz      15      18      +3  
+    57  2457 MHz       7      10      +3  
+    58  2458 MHz       6      14      +8  << CANDIDATE
+    59  2459 MHz      14      19      +5  
+    60  2460 MHz       9      18      +9  << CANDIDATE
+    61  2461 MHz       4      11      +7  << CANDIDATE
+    62  2462 MHz       3      10      +7  << CANDIDATE
+    63  2463 MHz       3      11      +8  << CANDIDATE
+    64  2464 MHz       6       4      -2  
+    65  2465 MHz       4       7      +3  
+    66  2466 MHz       9       9      +0  
+    67  2467 MHz       5      11      +6  << CANDIDATE
+    68  2468 MHz       5      14      +9  << CANDIDATE
+    69  2469 MHz      14       8      -6  (less during press)
+    70  2470 MHz      11       7      -4  
+    71  2471 MHz      10      26     +16  << CANDIDATE
+    72  2472 MHz       6       8      +2  
+    73  2473 MHz      10       5      -5  
+    74  2474 MHz       8       2      -6  (less during press)
+    75  2475 MHz      17      23      +6  << CANDIDATE
+    76  2476 MHz       8      11      +3  
+    77  2477 MHz       7       9      +2  
+    78  2478 MHz       4       8      +4  
+    79  2479 MHz       5       9      +4  
+    80  2480 MHz       5      10      +5  
+    81  2481 MHz       3       3      +0  
+    82  2482 MHz       5       9      +4  
+    83  2483 MHz       9       9      +0  
+    84  2484 MHz       0       4      +4  
+    85  2485 MHz       7       5      -2  
+    86  2486 MHz       9      14      +5  
+    87  2487 MHz       6      20     +14  << CANDIDATE
+    88  2488 MHz       4       9      +5  
+    89  2489 MHz       5       5      +0  
+    90  2490 MHz       5       9      +4  
+    91  2491 MHz      12      12      +0  
+    92  2492 MHz       8       6      -2  
+    93  2493 MHz       7       9      +2  
+    94  2494 MHz       6       6      +0  
+    95  2495 MHz      14      16      +2  
+    96  2496 MHz       7      25     +18  << CANDIDATE
+    97  2497 MHz       7       7      +0  
+    98  2498 MHz       6       3      -3  
+    99  2499 MHz       3       9      +6  << CANDIDATE
+   100  2500 MHz       2      11      +9  << CANDIDATE
+   101  2501 MHz       3       3      +0  
+   102  2502 MHz      11       9      -2  
+   103  2503 MHz       5      16     +11  << CANDIDATE
+   104  2504 MHz       0       9      +9  << CANDIDATE
+   105  2505 MHz       9       6      -3  
+   106  2506 MHz       4      10      +6  << CANDIDATE
+   107  2507 MHz       6      13      +7  << CANDIDATE
+   108  2508 MHz       8      17      +9  << CANDIDATE
+   109  2509 MHz       6       4      -2  
+   110  2510 MHz      10       5      -5  
+   111  2511 MHz       8       7      -1  
+   112  2512 MHz       4       9      +5  
+   113  2513 MHz       7       9      +2  
+   114  2514 MHz       7       5      -2  
+   115  2515 MHz       6      12      +6  << CANDIDATE
+   116  2516 MHz       8       9      +1  
+   117  2517 MHz       4       5      +1  
+   118  2518 MHz       9       9      +0  
+   119  2519 MHz       4      14     +10  << CANDIDATE
+   120  2520 MHz      12       7      -5  
+   121  2521 MHz       7      11      +4  
+   122  2522 MHz       5       5      +0  
+   123  2523 MHz       7      19     +12  << CANDIDATE
+   124  2524 MHz      14       5      -9  (less during press)
+   125  2525 MHz      60      47     -13  (less during press)
+
+CANDIDATE CHANNELS:
+    Channel 51 (2451 MHz): +35 packets
+    Channel 35 (2435 MHz): +30 packets
+    Channel 34 (2434 MHz): +26 packets
+    Channel 50 (2450 MHz): +19 packets
+    Channel 36 (2436 MHz): +18 packets
+    Channel 96 (2496 MHz): +18 packets
+    Channel 7 (2407 MHz): +16 packets
+    Channel 71 (2471 MHz): +16 packets
+    Channel 52 (2452 MHz): +14 packets
+    Channel 87 (2487 MHz): +14 packets
+    Channel 39 (2439 MHz): +12 packets
+    Channel 42 (2442 MHz): +12 packets
+    Channel 55 (2455 MHz): +12 packets
+    Channel 123 (2523 MHz): +12 packets
+    Channel 16 (2416 MHz): +11 packets
+    Channel 46 (2446 MHz): +11 packets
+    Channel 103 (2503 MHz): +11 packets
+    Channel 20 (2420 MHz): +10 packets
+    Channel 119 (2519 MHz): +10 packets
+    Channel 60 (2460 MHz): +9 packets
+    Channel 68 (2468 MHz): +9 packets
+    Channel 100 (2500 MHz): +9 packets
+    Channel 104 (2504 MHz): +9 packets
+    Channel 108 (2508 MHz): +9 packets
+    Channel 38 (2438 MHz): +8 packets
+    Channel 58 (2458 MHz): +8 packets
+    Channel 63 (2463 MHz): +8 packets
+    Channel 2 (2402 MHz): +7 packets
+    Channel 12 (2412 MHz): +7 packets
+    Channel 23 (2423 MHz): +7 packets
+    Channel 43 (2443 MHz): +7 packets
+    Channel 61 (2461 MHz): +7 packets
+    Channel 62 (2462 MHz): +7 packets
+    Channel 107 (2507 MHz): +7 packets
+    Channel 37 (2437 MHz): +6 packets
+    Channel 47 (2447 MHz): +6 packets
+    Channel 67 (2467 MHz): +6 packets
+    Channel 75 (2475 MHz): +6 packets
+    Channel 99 (2499 MHz): +6 packets
+    Channel 106 (2506 MHz): +6 packets
+    Channel 115 (2515 MHz): +6 packets
+
+Sample packets from ch 51:
+  8656AA415485085240A949123240940842104620A6190202B5D6A48C24450888

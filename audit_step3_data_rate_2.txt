@@ -1,0 +1,18 @@
+RF Data Rate Test Results
+Date: Mon May  4 12:28:44 2026
+Channel: 42
+Address: 38 72 2D A8 5E
+======================================================================
+
+  Rate          Total  Commands    Idle   Other  Verdict
+  ------------------------------------------------------------
+  1 Mbps          126        36      78      12  VALID DATA
+    IDLE: 4CEDAD0B872536628DB27F5F4D525BC5ADD29EB0
+    CMD: 4C6D176547EC002D48FBDFD116499F389239F49E
+    CMD: 4C6D176547EC002C48FBDFD1164907AD61976829
+    CMD: 4C6D176543EC202D48FBDFD116418F21CFC22EFE
+    CMD: 4C6D176547EC002DC8FBDFD1164947C915BB8640
+  2 Mbps            0         0       0       0  nothing
+  250 kbps          0         0       0       0  nothing
+
+  CONCLUSION: 1 Mbps produces valid data.

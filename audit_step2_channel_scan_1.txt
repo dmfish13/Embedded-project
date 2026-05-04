@@ -1,0 +1,179 @@
+RF Channel Scan Results
+Date: Mon May  4 12:23:08 2026
+Dwell: 200ms per channel
+======================================================================
+
+    Ch      Freq    Idle  Active    Diff  Note
+  ------------------------------------------------------------
+     0  2400 MHz      44      43      -1  
+     1  2401 MHz      20      21      +1  
+     2  2402 MHz      11      13      +2  
+     3  2403 MHz       7      21     +14  << CANDIDATE
+     4  2404 MHz       5      11      +6  << CANDIDATE
+     5  2405 MHz       6      10      +4  
+     6  2406 MHz      12      13      +1  
+     7  2407 MHz       8      18     +10  << CANDIDATE
+     8  2408 MHz       6      25     +19  << CANDIDATE
+     9  2409 MHz       6      13      +7  << CANDIDATE
+    10  2410 MHz      11      11      +0  
+    11  2411 MHz       4       6      +2  
+    12  2412 MHz      11      11      +0  
+    13  2413 MHz       8       9      +1  
+    14  2414 MHz       5       9      +4  
+    15  2415 MHz       8       3      -5  
+    16  2416 MHz       5       6      +1  
+    17  2417 MHz       7      12      +5  
+    18  2418 MHz       3       7      +4  
+    19  2419 MHz       6      15      +9  << CANDIDATE
+    20  2420 MHz       6      10      +4  
+    21  2421 MHz      10       6      -4  
+    22  2422 MHz       6       5      -1  
+    23  2423 MHz       9      21     +12  << CANDIDATE
+    24  2424 MHz       8       7      -1  
+    25  2425 MHz      15      12      -3  
+    26  2426 MHz      26      20      -6  (less during press)
+    27  2427 MHz       6      11      +5  
+    28  2428 MHz       7       5      -2  
+    29  2429 MHz       5      10      +5  
+    30  2430 MHz      10       6      -4  
+    31  2431 MHz      10       9      -1  
+    32  2432 MHz       4      13      +9  << CANDIDATE
+    33  2433 MHz       7      11      +4  
+    34  2434 MHz       4      32     +28  << CANDIDATE
+    35  2435 MHz      17      34     +17  << CANDIDATE
+    36  2436 MHz      16      18      +2  
+    37  2437 MHz       6      18     +12  << CANDIDATE
+    38  2438 MHz       8      13      +5  
+    39  2439 MHz       7      27     +20  << CANDIDATE
+    40  2440 MHz       7      15      +8  << CANDIDATE
+    41  2441 MHz      13      10      -3  
+    42  2442 MHz      11      17      +6  << CANDIDATE
+    43  2443 MHz       6      15      +9  << CANDIDATE
+    44  2444 MHz       5       8      +3  
+    45  2445 MHz       5      13      +8  << CANDIDATE
+    46  2446 MHz      11      14      +3  
+    47  2447 MHz       7      10      +3  
+    48  2448 MHz       2       3      +1  
+    49  2449 MHz       7      11      +4  
+    50  2450 MHz       9      29     +20  << CANDIDATE
+    51  2451 MHz       6      33     +27  << CANDIDATE
+    52  2452 MHz       3      13     +10  << CANDIDATE
+    53  2453 MHz      10       9      -1  
+    54  2454 MHz       4       8      +4  
+    55  2455 MHz       3      16     +13  << CANDIDATE
+    56  2456 MHz      10      19      +9  << CANDIDATE
+    57  2457 MHz       7       7      +0  
+    58  2458 MHz       8      26     +18  << CANDIDATE
+    59  2459 MHz       1      21     +20  << CANDIDATE
+    60  2460 MHz       4      21     +17  << CANDIDATE
+    61  2461 MHz      12       8      -4  
+    62  2462 MHz       2       7      +5  
+    63  2463 MHz       4      10      +6  << CANDIDATE
+    64  2464 MHz       6       9      +3  
+    65  2465 MHz       8       2      -6  (less during press)
+    66  2466 MHz      12       6      -6  (less during press)
+    67  2467 MHz       7      10      +3  
+    68  2468 MHz       9      18      +9  << CANDIDATE
+    69  2469 MHz       5      12      +7  << CANDIDATE
+    70  2470 MHz       4      10      +6  << CANDIDATE
+    71  2471 MHz      11      29     +18  << CANDIDATE
+    72  2472 MHz      10       7      -3  
+    73  2473 MHz       4       2      -2  
+    74  2474 MHz       7       0      -7  (less during press)
+    75  2475 MHz      17      20      +3  
+    76  2476 MHz       7       6      -1  
+    77  2477 MHz       8       8      +0  
+    78  2478 MHz       6       8      +2  
+    79  2479 MHz       6       8      +2  
+    80  2480 MHz       7       9      +2  
+    81  2481 MHz       6       5      -1  
+    82  2482 MHz       6       8      +2  
+    83  2483 MHz       5       5      +0  
+    84  2484 MHz       4       4      +0  
+    85  2485 MHz       7       4      -3  
+    86  2486 MHz      14       5      -9  (less during press)
+    87  2487 MHz       2      15     +13  << CANDIDATE
+    88  2488 MHz       5       8      +3  
+    89  2489 MHz       4       7      +3  
+    90  2490 MHz       9       8      -1  
+    91  2491 MHz       4      12      +8  << CANDIDATE
+    92  2492 MHz       8       0      -8  (less during press)
+    93  2493 MHz       5      16     +11  << CANDIDATE
+    94  2494 MHz       6       6      +0  
+    95  2495 MHz      10      17      +7  << CANDIDATE
+    96  2496 MHz       5      22     +17  << CANDIDATE
+    97  2497 MHz       8       9      +1  
+    98  2498 MHz      10       9      -1  
+    99  2499 MHz       7       4      -3  
+   100  2500 MHz       1      13     +12  << CANDIDATE
+   101  2501 MHz       7       5      -2  
+   102  2502 MHz      15      17      +2  
+   103  2503 MHz       5      11      +6  << CANDIDATE
+   104  2504 MHz       9       5      -4  
+   105  2505 MHz       8       9      +1  
+   106  2506 MHz       8       2      -6  (less during press)
+   107  2507 MHz       4      12      +8  << CANDIDATE
+   108  2508 MHz      10      12      +2  
+   109  2509 MHz       1       5      +4  
+   110  2510 MHz       6       7      +1  
+   111  2511 MHz       8       8      +0  
+   112  2512 MHz       9      13      +4  
+   113  2513 MHz      12       9      -3  
+   114  2514 MHz      10       6      -4  
+   115  2515 MHz       8      11      +3  
+   116  2516 MHz       3       9      +6  << CANDIDATE
+   117  2517 MHz       9       7      -2  
+   118  2518 MHz      11       3      -8  (less during press)
+   119  2519 MHz       7      14      +7  << CANDIDATE
+   120  2520 MHz      12       6      -6  (less during press)
+   121  2521 MHz       4      15     +11  << CANDIDATE
+   122  2522 MHz       8       7      -1  
+   123  2523 MHz      13      21      +8  << CANDIDATE
+   124  2524 MHz      11       8      -3  
+   125  2525 MHz      64      41     -23  (less during press)
+
+CANDIDATE CHANNELS:
+    Channel 34 (2434 MHz): +28 packets
+    Channel 51 (2451 MHz): +27 packets
+    Channel 39 (2439 MHz): +20 packets
+    Channel 50 (2450 MHz): +20 packets
+    Channel 59 (2459 MHz): +20 packets
+    Channel 8 (2408 MHz): +19 packets
+    Channel 58 (2458 MHz): +18 packets
+    Channel 71 (2471 MHz): +18 packets
+    Channel 35 (2435 MHz): +17 packets
+    Channel 60 (2460 MHz): +17 packets
+    Channel 96 (2496 MHz): +17 packets
+    Channel 3 (2403 MHz): +14 packets
+    Channel 55 (2455 MHz): +13 packets
+    Channel 87 (2487 MHz): +13 packets
+    Channel 23 (2423 MHz): +12 packets
+    Channel 37 (2437 MHz): +12 packets
+    Channel 100 (2500 MHz): +12 packets
+    Channel 93 (2493 MHz): +11 packets
+    Channel 121 (2521 MHz): +11 packets
+    Channel 7 (2407 MHz): +10 packets
+    Channel 52 (2452 MHz): +10 packets
+    Channel 19 (2419 MHz): +9 packets
+    Channel 32 (2432 MHz): +9 packets
+    Channel 43 (2443 MHz): +9 packets
+    Channel 56 (2456 MHz): +9 packets
+    Channel 68 (2468 MHz): +9 packets
+    Channel 40 (2440 MHz): +8 packets
+    Channel 45 (2445 MHz): +8 packets
+    Channel 91 (2491 MHz): +8 packets
+    Channel 107 (2507 MHz): +8 packets
+    Channel 123 (2523 MHz): +8 packets
+    Channel 9 (2409 MHz): +7 packets
+    Channel 69 (2469 MHz): +7 packets
+    Channel 95 (2495 MHz): +7 packets
+    Channel 119 (2519 MHz): +7 packets
+    Channel 4 (2404 MHz): +6 packets
+    Channel 42 (2442 MHz): +6 packets
+    Channel 63 (2463 MHz): +6 packets
+    Channel 70 (2470 MHz): +6 packets
+    Channel 103 (2503 MHz): +6 packets
+    Channel 116 (2516 MHz): +6 packets
+
+Sample packets from ch 34:
+  40002000000100205A05A005000520140004000EFAF4AB675B56AAA514D52B4E
