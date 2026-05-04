@@ -1,0 +1,20 @@
+RF Noise Validation Test
+Date: Mon May  4 15:04:34 2026
+Address: 38 72 2D A8 5E
+Seconds per channel: 15
+======================================================================
+
+   Channel      Freq   Total    Cmd   Idle  Other     Rate
+  ----------------------------------------------------------
+        42   2442 MHz     283     53    120    110   18.9/s
+    CMD: 4C6D176547EC002D48FBDFD11649B7074E42ED49F336D5AAFE08305D1B4C02D5
+    IDLE: 4CEDAD0B8725766296BE7EEE9CE79A6831654ECDD4AA2283F63DE5CE1BD1D900
+    IDLE: 4CEDAD0B87257662A5A4FC84B744F1EB685C216C2E1835EEE384910D42D4940E
+    CMD: 4C6D176547EC002D48FBDFD116493F8BE107AB9EF585A774BCFD9585EACB794F
+    IDLE: 4CEDAD0B872576622CA003F4F8D7F18F1C311147C93561B16999EE7537B1EF04
+       100   2500 MHz       0      0      0      0    0.0/s
+        80   2480 MHz       0      0      0      0    0.0/s
+
+  VERDICT: REAL SIGNAL: Channel 42 has significantly more
+  packets than control channels. Something is
+  transmitting on ch 42 at this address.
