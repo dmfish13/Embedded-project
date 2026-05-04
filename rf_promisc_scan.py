@@ -3,8 +3,8 @@
 Promiscuous RF scanner — RF only, no LEDs.
 
 nRF24L01+ in promiscuous mode (2-byte address, no CRC, 1 Mbps) captures
-everything on channel 42. Detects button presses by finding duplicate
-packets (remote retransmits same payload multiple times per press).
+everything on channel 42. Detects button presses as packet-rate spikes
+above the rolling average.
 
 Usage:
     python3 rf_scanner_reset.py
@@ -125,7 +125,7 @@ def main():
     print("=" * 70)
     print("  Promiscuous RF Scanner")
     print("  2-byte address | no CRC | 1 Mbps | channel 42")
-    print("  Detection: duplicate packets (remote retransmits per press)")
+    print("  Detection: adaptive rate spike (rolling avg + margin)")
     print("=" * 70)
     print()
 
@@ -135,10 +135,22 @@ def main():
     radio = NRF24Promisc(spi, csn, ce)
     radio.configure(channel=42)
     print("  Radio: promiscuous mode on ch 42")
-    print("  Listening... press buttons on the remote!")
+
+    # --- Baseline: 3 seconds ---
+    print("  Measuring baseline (3s, don't press anything)...")
+    baseline_start = time.monotonic()
+    baseline_packets = 0
+    while time.monotonic() - baseline_start < 3.0:
+        if radio.available():
+            radio.read()
+            baseline_packets += 1
+
+    noise_rate = baseline_packets / 3.0
+    print(f"  Baseline: {baseline_packets} packets in 3s ({noise_rate:.1f}/s)")
     print()
-    print(f"  {'Time':>8}  {'Presses':>7}  {'Pkts':>6}  {'Rate':>5}  Event")
-    print("  " + "-" * 55)
+    print("  Listening... press buttons on the remote!")
+    print(f"  {'Time':>8}  {'Presses':>7}  {'Pkts':>6}  {'Win':>4}  {'Avg':>4}  Event")
+    print("  " + "-" * 60)
 
     press_count = 0
     total_packets = 0
@@ -146,54 +158,59 @@ def main():
     last_heartbeat = start_time
     heartbeat_interval = 3.0
 
-    # Duplicate detection: keep recent packets in a sliding window
-    recent_window = 0.5  # seconds
-    recent_packets = []  # list of (time, bytes)
+    # Sliding window for current rate
+    window_size = 0.3  # shorter window = more responsive
+    window_times = []
+
+    # Rolling average: track window counts over last 5 seconds
+    avg_history = []  # list of (time, window_count)
+    avg_window = 5.0
+
+    # Trigger settings
+    margin = 10  # trigger when win_count > rolling_avg + margin
     last_trigger_time = 0
     debounce = 0.8
-    dup_threshold = 2  # need 2+ identical packets to trigger
+
+    last_sample = None
 
     try:
         while True:
             now = time.monotonic()
 
             if radio.available():
-                raw = bytes(radio.read())
+                raw = radio.read()
                 total_packets += 1
-                recent_packets.append((now, raw))
+                window_times.append(now)
+                last_sample = raw
 
-            # Prune old packets from window
-            recent_packets = [(t, d) for t, d in recent_packets
-                              if now - t < recent_window]
+            # Prune window
+            window_times = [t for t in window_times if now - t < window_size]
+            win_count = len(window_times)
 
-            # Check for duplicates in window
-            if now - last_trigger_time > debounce and len(recent_packets) >= dup_threshold:
-                # Count occurrences of each packet
-                seen = {}
-                for t, d in recent_packets:
-                    seen[d] = seen.get(d, 0) + 1
+            # Update rolling average every 0.1s
+            avg_history.append((now, win_count))
+            avg_history = [(t, c) for t, c in avg_history
+                           if now - t < avg_window]
 
-                # Find any packet with 2+ occurrences
-                dup_pkt = None
-                for pkt, count in seen.items():
-                    if count >= dup_threshold:
-                        dup_pkt = pkt
-                        break
+            # Compute rolling average
+            if len(avg_history) > 10:
+                rolling_avg = sum(c for _, c in avg_history) / len(avg_history)
+            else:
+                rolling_avg = noise_rate * window_size
 
-                if dup_pkt is not None:
-                    press_count += 1
-                    last_trigger_time = now
-                    elapsed = now - start_time
-                    rate = total_packets / elapsed if elapsed > 0 else 0
-                    ts = time.strftime("%H:%M:%S")
-                    hex_str = "".join(f"{b:02X}" for b in dup_pkt[:24])
-                    dup_count = seen[dup_pkt]
-                    print(f"  {ts}  {press_count:>7}  {total_packets:>6}  "
-                          f"{rate:>5.1f}  PRESS #{press_count} "
-                          f"({dup_count} dupes)")
+            # Trigger on spike above rolling average
+            if (win_count > rolling_avg + margin
+                    and now - last_trigger_time > debounce):
+                press_count += 1
+                last_trigger_time = now
+                elapsed = now - start_time
+                ts = time.strftime("%H:%M:%S")
+                print(f"  {ts}  {press_count:>7}  {total_packets:>6}  "
+                      f"{win_count:>4}  {rolling_avg:>4.0f}  "
+                      f"PRESS #{press_count}")
+                if last_sample:
+                    hex_str = "".join(f"{b:02X}" for b in last_sample[:24])
                     print(f"           payload: {hex_str}")
-                    # Clear window after trigger to avoid re-triggering
-                    recent_packets = []
 
             # Heartbeat
             if now - last_heartbeat >= heartbeat_interval:
@@ -201,9 +218,9 @@ def main():
                 elapsed = now - start_time
                 rate = total_packets / elapsed if elapsed > 0 else 0
                 ts = time.strftime("%H:%M:%S")
-                win_count = len(recent_packets)
                 print(f"  {ts}  {press_count:>7}  {total_packets:>6}  "
-                      f"{rate:>5.1f}  . listening (win={win_count})")
+                      f"{win_count:>4}  {rolling_avg:>4.0f}  "
+                      f". ({rate:.0f}/s)")
 
     except KeyboardInterrupt:
         pass
@@ -211,7 +228,7 @@ def main():
     # Clean shutdown
     print()
     print()
-    print("  Shutting down...")
+    print("  Shutting down radio...")
     try:
         radio.power_down()
     except Exception:
@@ -225,6 +242,7 @@ def main():
     print(f"  Duration:          {elapsed:.1f}s")
     print(f"  Total packets:     {total_packets}")
     print(f"  Avg rate:          {total_packets/elapsed:.1f}/s" if elapsed > 0 else "")
+    print(f"  Noise baseline:    {noise_rate:.1f}/s")
     print(f"  Button presses:    {press_count}")
     print()
     print("  Done.")
