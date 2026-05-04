@@ -1,0 +1,979 @@
+ 02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:09:59        8    23    3000    53.8  (background)
+  02:10:00        9    46    3046    54.1  PRESS DETECTED
+           burst[0]: B52542D65B1B20B500AB2CCE79514355874C9405C14A9D5A
+           burst[1]: 61B11F2D45AB042426496B0EF29E4A2BFE866EB59426242D
+           burst[2]: 55CC0D555C30A151911D2917BF48C82A9AAAA95148A50A91
+  02:10:01       10    46    3135    54.7  PRESS DETECTED
+           burst[0]: 754851546B4A822302B402A5CE4AA4FAF757D2A12B335553
+           burst[1]: 050000555505050282802855550555550550000555005005
+           burst[2]: A0405500AA00000550AA0055550005000400000005500040
+  02:10:03       11    46    3270    55.4  PRESS DETECTED
+           burst[0]: CC4839AE8434D83352F542AD2515F4A371FCCAC71262AA46
+           burst[1]: 9364090208A24842A4955052415550A9524952494A8AAD5A
+           burst[2]: 4896C99A28416A45C0BD92E2C324522AB2D4869356E6A775
+  02:10:06       11    33    3500    56.0  (background)
+  02:10:10       12    46    3718    56.3  PRESS DETECTED
+           burst[0]: 000AA0AA80AAAA8015000A800000155001500A8A80A8A800
+           burst[1]: 8A42084A451029213A956B5DF56D1AF7FADF65B5605A12E4
+           burst[2]: CC6839AA8434D83352F542AFA51574AB71FCCAC71262EB46
+  02:10:14       13    46    3998    57.1  PRESS DETECTED
+           burst[0]: 01000015550080814140101554815552815000012A801001
+           burst[1]: 00800100000002A0005001001002002002A0202010200030
+           burst[2]: 0280002AAA8285020280282AAA82AAAA82A80002AA802802
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:14       13    48    4000    57.1  (background)
+  02:10:20       14    46    4432    57.7  PRESS DETECTED
+           burst[0]: 0AAA800A80005555454A8AAA8AA8AAAAAAAAAAAAA8140AAA
+           burst[1]: 000AA94A055555010A002A8840000AAA45500500A82A80A8
+           burst[2]: 008202A1B589415558B454A5A20C520A93204854A2541230
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:21       14    41    4500    57.9  (background)
+  02:10:22       15    46    4537    58.0  PRESS DETECTED
+           burst[0]: 052AA568A99550AD45164D251552D260A9D53A92C8959555
+           burst[1]: 2AAA00151002AAAA15151515015155551555552AA0002AAA
+           burst[2]: 001550A800AAAA800A800A8000000AA800A80A81500A80A8
+  02:10:23       16    46    4653    58.7  PRESS DETECTED
+           burst[0]: 82025498002A9A022845EAAAAAED7D6A52F6DB6B9759553E
+           burst[1]: A96EA91890196A52969562D24D9A2D454A930D05B5A6AB96
+           burst[2]: 514122A4194A72560255A8594404564A340D0EA937B5A9A3
+  02:10:24       17    46    4763    59.2  PRESS DETECTED
+           burst[0]: 0AAAA0004800A000000154081500A40A8048150054AA0A0A
+           burst[1]: 0140001555410141010010155501552A8150000155001002
+           burst[2]: 1010150015000000A8140015550001000100000000A80014
+  02:10:25       18    46    4847    59.4  PRESS DETECTED
+           burst[0]: 86E16B964A13A2946E379B8F651B8FE1C828987D2D521653
+           burst[1]: 3F1B34A1428EA14334C5A589ECA95E54ADAA282D2B552AA2
+           burst[2]: 02AAA0054000555545554542802A555542AAAAA2AA0002AA
+  02:10:27       19    46    4990    59.9  PRESS DETECTED
+           burst[0]: 0500005555050505050050555502AAAA8550000555405005
+           burst[1]: 50282A8055000002A855002AAA8002800280000005500050
+           burst[2]: 0100AAA15AB22ABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:27       19    42    5000    59.9  (background)
+  02:10:29       20    46    5167    60.4  PRESS DETECTED
+           burst[0]: 0A000055540A05050A00A0AAAA0AAAAA0AA0000555005005
+           burst[1]: 2050540055000005504000AAAA000A000500000005500040
+           burst[2]: 314A2A9BA4C52B5105510569AA53414DD97DA969086AAC45
+  02:10:30       21    50    5253    60.7  PRESS DETECTED
+           burst[0]: 04920354E2F78869B670ED2C902240AA60C94A7B42A9651A
+           burst[1]: 40491040684A5695BA2CAA5B0D4A1208E5325086AD4594AD
+           burst[2]: 84A2238C4B52011008098C4AA01455531428E094B0155044
+  02:10:31       22    46    5348    61.1  PRESS DETECTED
+           burst[0]: 1C931565B9AA9324A215549AA94520528948520B524A18A3
+           burst[1]: 93432B46A96A945595CDB6372CFA7D5ADDAAB874AC8DD548
+           burst[2]: 4A6A409118280AA954EA808A594438A2441A8D6577D35B5A
+  02:10:32       23    56    5432    61.3  PRESS DETECTED
+           burst[0]: 54AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA000AAA
+           burst[1]: A8AAAA9555550AA8000AAA80A815500A01501540AAAA8155
+           burst[2]: AAAA8015000A8000000AA800A8150A80A8A800000AA8AAA8
+  02:10:32       23    94    5500    61.9  (background)
+  02:10:33       24    46    5578    62.3  PRESS DETECTED
+           burst[0]: 285055005500000550280055550005000280000005500050
+           burst[1]: 40A0A000328118A4A09904A8993CA4C4A1A6E2CE9E688416
+           burst[2]: 0500005555050285028050555505555505500002AA802805
+  02:10:34       25    46    5673    62.6  PRESS DETECTED
+           burst[0]: AAA80A0A95500AA80000AA8A800AAAA800A800A8000000AA
+           burst[1]: AA152951159AA2C29648546BAD4492425AAA8AB098212991
+           burst[2]: 44855090A2AC523C4220904080ACB494B0126A24AC4A1942
+  02:10:35       26    47    5755    62.8  PRESS DETECTED
+           burst[0]: 0540A329A529509A0A64AAA20226C36A441A55628AA00F34
+           burst[1]: 52A67C930AD95F4A2755A4481121524530AA51B8B14CAACF
+           burst[2]: 4D3AD492CAADD75ADA5717D794F4B6B59EBADD774BABFA87
+  02:10:36       27    46    5838    63.1  PRESS DETECTED
+           burst[0]: C29446D2AD952595062B55D4957565A6B556D94AAAC4F22C
+           burst[1]: 9555D7DFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFEFFFFFD557F
+           burst[2]: 5554885520155554AAAA555485555554AAAAAA554880AAAA
+  02:10:39       27    21    6000    62.6  (background)
+  02:10:46       28    46    6369    62.4  PRESS DETECTED
+           burst[0]: 914298048C42293568A084CA492076DED1B4BA399F557B55
+           burst[1]: 0500002AAA850285028028555505555505500002AA805005
+           burst[2]: 50282A802A800002A828002AAA8005000280000005500050
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.2  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    18    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:48       28    17    6500    62.1  (background)
+  02:10:52       29    46    6739    62.0  PRESS DETECTED
+           burst[0]: 4884150A801400AADB557555DB5555FFFFDFFFDFFFFFFFFF
+           burst[1]: ACCCAD4BEE62D4D3A9D30DC576A25B6EB6AB6C12D5A19054
+           burst[2]: 15550015000155550A95150A815155551555555554000AAA
+  02:10:54       30    46    6899    62.3  PRESS DETECTED
+           burst[0]: 02AAA00540002AAAA542A545402A2AAAA2AAAAA2A80002AA
+           burst[1]: 55540505455405540000AA85540555540050005400000055
+           burst[2]: CAAAAA32B5A09692F71CAAA4AB6894ACAACA048D296AA56A
+  02:10:56       31    46    6993    62.4  PRESS DETECTED
+           burst[0]: A5ACE6E09B95174A21F949650B2A28C254808A55D556990E
+           burst[1]: 40000810000000000040000000000882E32B61D42CD541A2
+           burst[2]: 0500005555050505050050555505555502A8000555005002
+  02:10:56       31    47    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:56       31    46    7000    62.4  (background)
+  02:10:57       32    49    7075    62.6  PRESS DETECTED
+           burst[0]: 504C9A18126C3A560AD2AB1528C88AADA48B116B4CAAAB3A
+           burst[1]: 9D56EBADBD6D6BF4FE555B7BF7D7B52A1A06A414A2D22A45
+           burst[2]: 892A254844934934000448C288B365BDBB57AA5975755B09
+  02:10:58       33    50    7156    62.8  PRESS DETECTED
+           burst[0]: 43456853044285DFB77E3F4D54779D5FDAFDBEBA96F4ADAF
+           burst[1]: 0500002AAA85050285005055550555550550000555005005
+           burst[2]: 282855002A80000550550055550005000280000002A80028
+  02:10:59       34    46    7240    62.9  PRESS DETECTED
+           burst[0]: 00A141104966B2F0952BCA979525A34AAA9AA251714956B7
+           burst[1]: 200202000258008405089440840909201A20108205002124
+           burst[2]: 6D559AC6EED3575EAAA9696AAB9697456EAE8289752AEEED
+  02:11:00       35    46    7327    63.1  PRESS DETECTED
+           burst[0]: 00155155015555001500150000002AA00150151501515000
+           burst[1]: 6C6258FE2F6CF578B86E95EAD678800673E1BAAC5254562A
+           burst[2]: 0000001008010941200022005404000AE955AB5CCB25554D
+  02:11:01       36    46    7425    63.4  PRESS DETECTED
+           burst[0]: 02AAA82A02AA81502A01501555501555014152AA82AA0000
+           burst[1]: 150151402AAA000002AA151515001739152D02C55487A831
+           burst[2]: 2A0002AAAA2AAA2A2A02A2AAAA2AAAAA5550002AAA02A015
+  02:11:01       36    52    7500    63.7  (background)
+  02:11:02       37    64    7542    63.8  PRESS DETECTED
+           burst[0]: ABAAAD7575152A49BA162976AADB6A5AF59794D56B5AF5B5
+           burst[1]: 0AAA800A0000AAAA8A8A8A8A80A0AAAA8AAAAA8AA0000AAA
+           burst[2]: AAA80A8A8AA80AA80000AA8AA80AAAA800A800A800000055
+  02:11:03       38    46    7661    64.2  PRESS DETECTED
+           burst[0]: 908BA9228BA104D5C6B55A45E584449B7466B694C5791A15
+           burst[1]: 2AA24D9334AF554F0855A48351FA498B042A9090B0355598
+           burst[2]: DAAD2D08B60135D5521A912B4B0ABD6EBBA8B0C055EAEB5A
+  02:11:04       39    49    7762    64.5  PRESS DETECTED
+           burst[0]: 8055B27144123864937910B68A1252121A389202A468F215
+           burst[1]: 1555002A0001555515151515015555551555551550001555
+           burst[2]: 0015515501555500150015000000155000A015550150A800
+  02:11:05       40    48    7865    64.8  PRESS DETECTED
+           burst[0]: C9449250956A7A99556CBBAA912AEB766D69D5D9B729469A
+           burst[1]: 4AB2D6489552DA5A52842E84B4329B846AAA5C96B5DAD26A
+           burst[2]: 3432A45215101AA04024502570111EFB5FA6F556B5565155
+  02:11:06       41    46    7976    65.0  PRESS DETECTED
+           burst[0]: 505055005500000550A0005555000400050000000AA00040
+           burst[1]: A050500092946AA418A0A057C94D2D6A75B568A7C4FABD32
+           burst[2]: 890349A0D0090902124A9901153429BAA4A1275952D4D629
+  02:11:07       41    33    8000    65.0  (background)
+  02:11:09       42    46    8173    65.1  PRESS DETECTED
+           burst[0]: A6141C496496340E94451310A94940A694D7CA83171B5B69
+           burst[1]: 0AAA800AA00055554A8AA555405455554AAAAA8554000555
+           burst[2]: AA80000AA950015555000A800A8000000AA800A80A80A80A
+  02:11:15       42    25    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    24    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:15       42    23    8500    64.8  (background)
+  02:11:17       43    46    8660    64.8  PRESS DETECTED
+           burst[0]: 000554540055554005400540000005540054054054054050
+           burst[1]: 142491949444058204109160224014106208529120111408
+           burst[2]: 0280002AAA850505050050555502AAAA82A8000555005005
+  02:11:18       44    46    8754    65.0  PRESS DETECTED
+           burst[0]: 1544AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+           burst[1]: D7C4CCAC48EEB7BBCBB60E4F4146DDDDF5D5284055492144
+           burst[2]: A84A0B00811234AB3884889A2A6A518BCA1E12C412D69528
+  02:11:19       45    46    8861    65.2  PRESS DETECTED
+           burst[0]: 802120D29181512A1282228021258102400CFDDCB7B56FBC
+           burst[1]: 154002AAAA9515150A815155551555551554001555015015
+           burst[2]: AA54AA805540000AA8AA005555400A800A800000055400AA
+  02:11:21       46    46    8956    65.4  PRESS DETECTED
+           burst[0]: 505050001448112175B464B1F1FE000CD4E7B42ABB5130EA
+           burst[1]: 949345600B050AD2A8544537569BB1C2DCB2A6AAAAAEAA6E
+           burst[2]: AAEDAAAABFFFFFFFFBFFFFFFFFFFFFFEFFFFFBFFFFFFFFFF
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:21       46    53    9000    65.5  (background)
+  02:11:22       47    62    9066    65.7  PRESS DETECTED
+           burst[0]: 140000AAAA14151414014155540AAAAA1540001554014015
+           burst[1]: 50505500550000055050002AAA8002800280000002A80050
+           burst[2]: 28542800049B5982619952C88918320A4B54D5BA28BCAAAB
+  02:11:23       48    59    9208    66.2  PRESS DETECTED
+           burst[0]: 200010000000290000002001001002002A02000002800158
+           burst[1]: E8A82614256E92215421292A5B86AABB7D17BED70F7ACF77
+           burst[2]: 9917242A33C4A8AA14EAA90C65409954D40AC7258A8692A9
+  02:11:24       49    46    9329    66.5  PRESS DETECTED
+           burst[0]: 10202A0015000002A8150015540000000200000002500020
+           burst[1]: 21022311090425614841081080C10654228D62EDB765B5DE
+           burst[2]: 004A2A854922452AAA0510AA555450495522A80015540014
+  02:11:25       50    49    9426    66.7  PRESS DETECTED
+           burst[0]: 555555555555555555555555555555555555555555480555
+           burst[1]: 2822AA2A151500555056B88EB5347213A22C846355A8525C
+           burst[2]: 116C158425014E5A05A29A8AC390A8CC174B05A66E52C15B
+  02:11:26       50    53    9500    66.8  (background)
+  02:11:26       51    57    9511    66.8  PRESS DETECTED
+           burst[0]: 00155150015555400A800A800000155001541500A81500A8
+           burst[1]: 0804002C820820542350811800290642420C280084892200
+           burst[2]: 555AAD162D15055A6AA54195A99577F77FFFFFFFFFFFFFFF
+  02:11:27       52    46    9592    66.9  PRESS DETECTED
+           burst[0]: 8112542E254544124D2C691351B2A5965548914148A6AA32
+           burst[1]: 842322246455452A7B42A6AAA261A82ACB240898B2D82253
+           burst[2]: 2488AA421344869255245514A1952AA652AABBFFFFFBFFFF
+  02:11:28       53    46    9696    67.1  PRESS DETECTED
+           burst[0]: 050000555504050505005055550555540550000555005005
+           burst[1]: 505055005500000540500055550005000500000005500050
+           burst[2]: 0A80A0015544134E924080A2A880610084089292A8AA0A2A
+  02:11:29       54    50    9794    67.3  PRESS DETECTED
+           burst[0]: 1502A15015150000015515152A000729092864131F29D2C4
+           burst[1]: 8235133E5D289129CA93244ADA02A2A5A0B154ADABD0492E
+           burst[2]: 3066529A0208B1646556B755F955531F63AB69E4555395DE
+  02:11:31       55    46    9919    67.5  PRESS DETECTED
+           burst[0]: 050000555504050405005055540555550AA0000555005005
+           burst[1]: 5050540055000005505000555500050005000000055000A0
+           burst[2]: 80A0A0005372008A2927094544AA8AB677598ADA2AAA2920
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       55    26   10000    67.4  (background)
+  02:11:32       56    46   10036    67.5  PRESS DETECTED
+           burst[0]: 8D8A814018992062A6A552C2C925597575E52AAD05914522
+           burst[1]: C503E68145A306975561225407968406526A658E66A128BC
+           burst[2]: DAB4B5964B6A79AD9542B25B436DAA8A5DA2662190455DDA
+^C
+
+======================================================================
+  RESULTS
+======================================================================
+  Duration:          153.8s
+  Total packets:     10322
+  Avg rate:          67.1/s
+  Noise baseline:    30.8/s
+  Trigger threshold: 46 in 0.5s
+  Button presses:    56
