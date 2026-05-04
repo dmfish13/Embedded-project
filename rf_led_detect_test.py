@@ -3,18 +3,11 @@
 RF button-press detector with LED visual feedback.
 
 Listens for command packets (4C6D1765...) from the Jasco remote on the
-nRF24L01+ (SPI0) and flashes the LED strip (SPI1) each time one is
-detected. This confirms that we are actually receiving real button presses
-vs noise/idle.
+nRF24L01+ (SPI0) and changes the LED strip color (SPI1) each time a
+press is detected. LEDs start OFF, then cycle White -> Red -> Blue ->
+Green on successive presses.
 
-Test procedure:
-  1. Run this script
-  2. Press NOTHING — LEDs should stay dark (no false triggers)
-  3. Press Power on the remote — LEDs should flash green briefly
-  4. Press other buttons — each press should flash (different color per
-     burst so you can count presses)
-
-The flash uses the proven TM1815B SPI1 driver from led_marquee_cycle_test.py.
+LED driver from led_marquee_cycle_test.py (4-bit encoding @ 2.0 MHz).
 
 Usage:
     python3 rf_scanner_reset.py
@@ -22,7 +15,6 @@ Usage:
 """
 
 import time
-import threading
 from spidev import SpiDev
 
 # -- nRF24L01+ imports (SPI0 via Blinka) --
@@ -72,15 +64,12 @@ def build_frame(pixels):
 
 OFF = (0, 0, 0, 0)
 
-FLASH_COLORS = [
-    (0, 0, 255, 0),      # green
-    (0, 0, 0, 255),      # blue
+# Cycle: White -> Red -> Blue -> Green -> repeat
+PRESS_COLORS = [
+    (255, 0, 0, 0),      # white (W channel)
     (0, 255, 0, 0),      # red
-    (0, 255, 230, 0),    # yellow
-    (0, 0, 255, 255),    # cyan
-    (0, 255, 0, 255),    # magenta
-    (255, 0, 0, 0),      # white
-    (0, 255, 100, 0),    # orange
+    (0, 0, 0, 255),      # blue
+    (0, 0, 255, 0),      # green
 ]
 
 
@@ -92,20 +81,17 @@ class LEDFlasher:
         self.spi.mode = 0b00
         self.spi.lsbfirst = False
         self._off_frame = list(build_frame([OFF] * NUM_LEDS))
-        self.spi.xfer2(self._off_frame[:])
-
-    def flash(self, wrgb, duration=0.15):
-        on_frame = list(build_frame([wrgb] * NUM_LEDS))
-        self.spi.xfer2(on_frame[:])
-        time.sleep(duration)
-        self.spi.xfer2(self._off_frame[:])
+        for _ in range(3):
+            self.spi.xfer2(self._off_frame[:])
 
     def solid(self, wrgb):
         frame = list(build_frame([wrgb] * NUM_LEDS))
-        self.spi.xfer2(frame[:])
+        for _ in range(3):
+            self.spi.xfer2(frame[:])
 
     def off(self):
-        self.spi.xfer2(self._off_frame[:])
+        for _ in range(3):
+            self.spi.xfer2(self._off_frame[:])
 
     def close(self):
         self.off()
@@ -266,10 +252,16 @@ def main():
     print("  nRF24L01+ on SPI0 (ch 42) | LEDs on SPI1 (TM1815B)")
     print("=" * 70)
     print()
+    print("  LEDs start OFF. Each button press on the remote cycles:")
+    print("    OFF -> White -> Red -> Blue -> Green -> White -> ...")
+    print()
     print("  Test procedure:")
-    print("    1. Press NOTHING for 10s — should see zero command packets")
-    print("    2. Press Power once      — LEDs should flash, count = 1")
-    print("    3. Press other buttons   — each press flashes a new color")
+    print("    1. Press NOTHING for 10s — LEDs stay off, no commands")
+    print("    2. Press any button once — LEDs turn White")
+    print("    3. Press again           — LEDs turn Red")
+    print("    4. Press again           — LEDs turn Blue")
+    print("    5. Press again           — LEDs turn Green")
+    print("    6. Press again           — back to White")
     print()
     print("  Each button PRESS (not hold) should produce 1-3 command")
     print("  packets. Idle/interference packets are filtered out.")
@@ -290,6 +282,8 @@ def main():
     print("  nRF24L01+: OK (SPI0, ch 42)")
     print()
 
+    COLOR_NAMES = ["White", "Red", "Blue", "Green"]
+
     press_count = 0
     cmd_count = 0
     idle_count = 0
@@ -300,8 +294,8 @@ def main():
     try:
         print("  Listening... (press remote buttons)")
         print(f"  {'Time':>8}  {'Event':<12}  {'Cmds':>5}  {'Presses':>7}  "
-              f"{'Idle':>6}  Payload")
-        print("  " + "-" * 66)
+              f"{'Idle':>6}  {'Color':<8}  Payload")
+        print("  " + "-" * 74)
 
         while True:
             if radio.available():
@@ -315,15 +309,16 @@ def main():
 
                     if now - last_cmd_time > debounce:
                         press_count += 1
-                        color = FLASH_COLORS[
-                            (press_count - 1) % len(FLASH_COLORS)]
-                        leds.flash(color, duration=0.15)
+                        color_idx = (press_count - 1) % len(PRESS_COLORS)
+                        color = PRESS_COLORS[color_idx]
+                        color_name = COLOR_NAMES[color_idx]
+                        leds.solid(color)
 
                     last_cmd_time = now
                     ts = time.strftime("%H:%M:%S")
                     print(f"  {ts}  {'COMMAND':<12}  {cmd_count:>5}  "
                           f"{press_count:>7}  {idle_count:>6}  "
-                          f"{hex_str}")
+                          f"{color_name:<8}  {hex_str}")
 
                 elif is_near_command(desc):
                     near_cmd_count += 1
@@ -334,7 +329,7 @@ def main():
                         ts = time.strftime("%H:%M:%S")
                         print(f"  {ts}  {'idle':<12}  {cmd_count:>5}  "
                               f"{press_count:>7}  {idle_count:>6}  "
-                              f"(noise/idle)")
+                              f"{'':8}  (noise/idle)")
 
     except KeyboardInterrupt:
         print()
