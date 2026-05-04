@@ -3,17 +3,8 @@
 Promiscuous RF scanner — RF only, no LEDs.
 
 nRF24L01+ in promiscuous mode (2-byte address, no CRC, 1 Mbps) captures
-everything on channel 42. Detects button presses as packet bursts above
-the noise baseline.
-
-Promiscuous config:
-  - SETUP_AW = 0x00 (2-byte address — widest net)
-  - Pipe 0: address 0x00,0x55 (catches 0xAA preamble -> 0x55 sync)
-  - Pipe 1: address 0x00,0xAA (catches 0x55 preamble -> 0xAA sync)
-  - CRC disabled
-  - Auto-ack disabled
-  - 32-byte fixed payload
-  - 1 Mbps, channel 42
+everything on channel 42. Detects button presses by finding duplicate
+packets (remote retransmits same payload multiple times per press).
 
 Usage:
     python3 rf_scanner_reset.py
@@ -100,9 +91,7 @@ class NRF24Promisc:
         self._reg_write(0x02, 0x03)    # EN_RXADDR: pipes 0 and 1
         self._reg_write(0x03, 0x00)    # SETUP_AW: 2-byte address (widest)
 
-        # Pipe 0: catches packets after 0xAA preamble
         self._reg_write_bytes(0x0A, b"\x00\x55")
-        # Pipe 1: catches packets after 0x55 preamble
         self._reg_write_bytes(0x0B, b"\x00\xAA")
 
         self._reg_write(0x11, 32)      # RX_PW_P0: 32-byte payload
@@ -134,8 +123,9 @@ class NRF24Promisc:
 
 def main():
     print("=" * 70)
-    print("  Promiscuous RF Scanner (no LEDs)")
+    print("  Promiscuous RF Scanner")
     print("  2-byte address | no CRC | 1 Mbps | channel 42")
+    print("  Detection: duplicate packets (remote retransmits per press)")
     print("=" * 70)
     print()
 
@@ -145,104 +135,100 @@ def main():
     radio = NRF24Promisc(spi, csn, ce)
     radio.configure(channel=42)
     print("  Radio: promiscuous mode on ch 42")
-
-    # --- Phase 1: noise baseline ---
-    print("\n  Measuring noise baseline (5 seconds, don't press anything)...")
-    baseline_start = time.monotonic()
-    baseline_packets = 0
-    baseline_samples = []
-    while time.monotonic() - baseline_start < 5.0:
-        if radio.available():
-            raw = radio.read()
-            baseline_packets += 1
-            if baseline_packets <= 5:
-                baseline_samples.append(raw)
-
-    noise_rate = baseline_packets / 5.0
-    trigger_threshold = max(int(noise_rate * 0.5 * 3), 3)
-
-    print(f"  Noise: {baseline_packets} packets in 5s ({noise_rate:.1f}/s)")
-    print(f"  Trigger: >{trigger_threshold} packets in 0.5s window")
-    if baseline_samples:
-        print(f"  Sample noise packets:")
-        for i, s in enumerate(baseline_samples):
-            print(f"    [{i}] {''.join(f'{b:02X}' for b in s[:24])}")
+    print("  Listening... press buttons on the remote!")
     print()
+    print(f"  {'Time':>8}  {'Presses':>7}  {'Pkts':>6}  {'Rate':>5}  Event")
+    print("  " + "-" * 55)
 
-    # --- Phase 2: detect presses ---
     press_count = 0
     total_packets = 0
-    window_size = 0.5
-    window_packets = []
+    start_time = time.monotonic()
+    last_heartbeat = start_time
+    heartbeat_interval = 3.0
+
+    # Duplicate detection: keep recent packets in a sliding window
+    recent_window = 0.5  # seconds
+    recent_packets = []  # list of (time, bytes)
     last_trigger_time = 0
-    debounce = 1.0
+    debounce = 0.8
+    dup_threshold = 2  # need 2+ identical packets to trigger
 
     try:
-        print("  Listening... press buttons on the remote!")
-        print(f"  {'Time':>8}  {'Presses':>7}  {'Win':>4}  "
-              f"{'Total':>6}  {'Rate/s':>6}  Note")
-        print("  " + "-" * 60)
-
-        phase2_start = time.monotonic()
-
         while True:
             now = time.monotonic()
 
             if radio.available():
-                raw = radio.read()
+                raw = bytes(radio.read())
                 total_packets += 1
-                window_packets.append((now, raw))
+                recent_packets.append((now, raw))
 
-            window_packets = [(t, d) for t, d in window_packets
-                              if now - t < window_size]
+            # Prune old packets from window
+            recent_packets = [(t, d) for t, d in recent_packets
+                              if now - t < recent_window]
 
-            win_count = len(window_packets)
+            # Check for duplicates in window
+            if now - last_trigger_time > debounce and len(recent_packets) >= dup_threshold:
+                # Count occurrences of each packet
+                seen = {}
+                for t, d in recent_packets:
+                    seen[d] = seen.get(d, 0) + 1
 
-            if (win_count >= trigger_threshold
-                    and now - last_trigger_time > debounce):
-                press_count += 1
-                last_trigger_time = now
+                # Find any packet with 2+ occurrences
+                dup_pkt = None
+                for pkt, count in seen.items():
+                    if count >= dup_threshold:
+                        dup_pkt = pkt
+                        break
 
-                ts = time.strftime("%H:%M:%S")
-                elapsed = now - phase2_start
+                if dup_pkt is not None:
+                    press_count += 1
+                    last_trigger_time = now
+                    elapsed = now - start_time
+                    rate = total_packets / elapsed if elapsed > 0 else 0
+                    ts = time.strftime("%H:%M:%S")
+                    hex_str = "".join(f"{b:02X}" for b in dup_pkt[:24])
+                    dup_count = seen[dup_pkt]
+                    print(f"  {ts}  {press_count:>7}  {total_packets:>6}  "
+                          f"{rate:>5.1f}  PRESS #{press_count} "
+                          f"({dup_count} dupes)")
+                    print(f"           payload: {hex_str}")
+                    # Clear window after trigger to avoid re-triggering
+                    recent_packets = []
+
+            # Heartbeat
+            if now - last_heartbeat >= heartbeat_interval:
+                last_heartbeat = now
+                elapsed = now - start_time
                 rate = total_packets / elapsed if elapsed > 0 else 0
-                print(f"  {ts}  {press_count:>7}  {win_count:>4}  "
-                      f"{total_packets:>6}  {rate:>6.1f}  "
-                      f"PRESS DETECTED")
-
-                # Show sample packets from this burst
-                burst = window_packets[-min(3, len(window_packets)):]
-                for i, (t, d) in enumerate(burst):
-                    hex_str = "".join(f"{b:02X}" for b in d[:24])
-                    print(f"           burst[{i}]: {hex_str}")
-
-            elif total_packets > 0 and total_packets % 500 == 0:
                 ts = time.strftime("%H:%M:%S")
-                elapsed = now - phase2_start
-                rate = total_packets / elapsed if elapsed > 0 else 0
-                print(f"  {ts}  {press_count:>7}  {win_count:>4}  "
-                      f"{total_packets:>6}  {rate:>6.1f}  "
-                      f"(background)")
+                win_count = len(recent_packets)
+                print(f"  {ts}  {press_count:>7}  {total_packets:>6}  "
+                      f"{rate:>5.1f}  . listening (win={win_count})")
 
     except KeyboardInterrupt:
-        elapsed = time.monotonic() - phase2_start
-        print()
-        print()
-        print("=" * 70)
-        print("  RESULTS")
-        print("=" * 70)
-        print(f"  Duration:          {elapsed:.1f}s")
-        print(f"  Total packets:     {total_packets}")
-        print(f"  Avg rate:          {total_packets/elapsed:.1f}/s" if elapsed > 0 else "")
-        print(f"  Noise baseline:    {noise_rate:.1f}/s")
-        print(f"  Trigger threshold: {trigger_threshold} in {window_size}s")
-        print(f"  Button presses:    {press_count}")
-    finally:
-        try:
-            radio.power_down()
-        except Exception:
-            pass
-        print("  Radio shut down.")
+        pass
+
+    # Clean shutdown
+    print()
+    print()
+    print("  Shutting down...")
+    try:
+        radio.power_down()
+    except Exception:
+        pass
+
+    elapsed = time.monotonic() - start_time
+    print()
+    print("=" * 70)
+    print("  RESULTS")
+    print("=" * 70)
+    print(f"  Duration:          {elapsed:.1f}s")
+    print(f"  Total packets:     {total_packets}")
+    print(f"  Avg rate:          {total_packets/elapsed:.1f}/s" if elapsed > 0 else "")
+    print(f"  Button presses:    {press_count}")
+    print()
+    print("  Done.")
+    print("=" * 70)
 
 
 if __name__ == "__main__":
