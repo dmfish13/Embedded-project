@@ -28,6 +28,8 @@ For interception, the nRF24L01+ receiver is configured for channel 42 (2442 MHz)
 
 The descramble process in software is straightforward: for each received byte at position i, the code looks up its bit-reversed value in a pre-computed 256-entry table, then XORs the result with SCRAMBLE_B[5 + i] (the scramble table offset by the 5-byte address width). This transforms the raw on-air bytes back into the original payload the remote intended to send.
 
+A companion tool, `xn297l_scanner.py`, implements the full XN297L protocol emulation layer ported from the nrf24_multipro C project (XN297_emu.ino, nRF24L01.ino, iface_nrf24l01.h). The scanner handles the initial reverse-engineering phase — discovering an unknown remote's address and active channels — by exploiting the XN297 28-bit preamble (0xC710F55) for promiscuous packet capture. It validates captured packets with CRC-16 (polynomial 0x1021, initial 0xB5D2, per-length XOR-out finalization) and uses address frequency analysis across channel-hopping scans to identify the remote. Once the address is known, the scanner transitions to targeted reception with full payload de-whitening using the exact `bit_reverse(raw[i]) ^ bit_reverse(scramble[i + addr_len])` algorithm from the C reference. This tool bridges the gap between "unknown XN297L remote" and "known address hardcoded in main.py."
+
 ### 2.2 Hardware Address Filtering as Pairing
 
 The nRF24L01+ contains a hardware correlator that continuously scans the incoming 2.4 GHz bitstream for a valid preamble followed by the programmed 5-byte address. Only when all 40 address bits match does the chip clock payload data into its receive FIFO. All other 2.4 GHz traffic — WiFi, Bluetooth, other nRF24L01+ devices, microwave ovens — is rejected at the hardware level with a collision probability of approximately one in 1.1 trillion.
@@ -108,6 +110,8 @@ The entire system runs from a single Python file with no external dependencies b
 
 The architecture scales naturally to additional features: more LEDs (increase NUM_LEDS), new animations (add a loop function and register it in start_mode), additional remote buttons (run --learn mode), or entirely different LED protocols (swap the encoding LUT and frame builder). The modular design within the single file — pure data definitions at top, stateless encoding functions in the middle, stateful controller logic at bottom — enables confident modification without fear of breaking unrelated functionality.
 
+The development toolchain includes `xn297l_scanner.py`, a standalone XN297L protocol emulation scanner ported from the nrf24_multipro C project. The scanner handles the initial reverse-engineering phase that precedes controller deployment: discovering unknown remote addresses via promiscuous preamble matching, identifying active channels through multi-channel hopping, and validating captures with CRC-16 verification. This tool makes the system reproducible — given any XN297L-based remote, the scanner discovers its address and channels, main.py's `--learn` mode captures button codes, and the controller is operational.
+
 ---
 
-*Total system: 1,385 lines of Python, one JSON configuration file, zero external Python package dependencies beyond Adafruit Blinka and spidev.*
+*Total system: 1,957 lines of Python (1,385 in main.py + 572 in xn297l_scanner.py), one JSON configuration file, zero external Python package dependencies beyond Adafruit Blinka and spidev.*

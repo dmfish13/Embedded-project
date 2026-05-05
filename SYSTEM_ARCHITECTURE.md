@@ -7,10 +7,11 @@
 
 1. [Project Overview](#project-overview)
 2. [RF Signal Interception](#rf-signal-interception)
-3. [Dual-Bus Hardware Architecture](#dual-bus-hardware-architecture)
-4. [Non-Blocking State Machine Software Design](#non-blocking-state-machine-software-design)
-5. [Logic Level Optimization](#logic-level-optimization)
-6. [Design Decisions & Rationale](#design-decisions--rationale)
+3. [XN297L Scanner Tool](#xn297l-scanner-tool)
+4. [Dual-Bus Hardware Architecture](#dual-bus-hardware-architecture)
+5. [Non-Blocking State Machine Software Design](#non-blocking-state-machine-software-design)
+6. [Logic Level Optimization](#logic-level-optimization)
+7. [Design Decisions & Rationale](#design-decisions--rationale)
 
 ---
 
@@ -161,6 +162,56 @@ The XN297L transmits fixed 32-byte frames regardless of actual payload length. W
 The `find_idle_start()` function scans backward from byte 31, looking for these patterns with ±1 bit error tolerance (accounting for RF noise that may flip a single bit). The bytes before the idle tail are the meaningful button identifier.
 
 **Why not just use a fixed payload length?** Different buttons may encode different amounts of data. The idle-tail detection adapts automatically without requiring prior knowledge of each button's payload length.
+
+---
+
+## XN297L Scanner Tool
+
+### Purpose
+
+Before `main.py` can operate, the remote's RF address and active channel must be known. The `xn297l_scanner.py` tool handles this discovery phase — it is a standalone RF diagnostic utility that implements the full XN297L protocol emulation layer, ported from the nrf24_multipro C project (XN297_emu.ino, nRF24L01.ino, iface_nrf24l01.h).
+
+### How It Works
+
+The scanner exploits the XN297 28-bit preamble structure. Every XN297L packet begins with the preamble `0xC710F55`. The nRF24L01+ consumes the first byte (`0x55`) as its own preamble. By setting the nRF24L01+ to a 2-byte address matching the preamble continuation (`0x0F, 0x71`), any XN297L packet — regardless of its actual address — triggers a receive. The remaining 32 bytes in the FIFO contain the scrambled address, scrambled payload, and CRC.
+
+A second receive pipe listens for the alternative `0xAA`-based preamble. The nRF24L01+ uses `0xAA` instead of `0x55` when the first on-air byte after the preamble has its MSB set to 1. This dual-pipe approach catches all XN297L packets regardless of address.
+
+### Discovery vs. Targeted Mode
+
+**Discovery Mode:** The scanner hops across all channels (0–83, or a specified subset), captures packets, descrambles addresses using the XN297 scramble table, and validates them with CRC-16 (polynomial 0x1021, initial 0xB5D2, per-length XOR-out finalization). Address frequency analysis reveals which address appears most often — that is the remote. Active channels are tracked to identify the remote's hopping pattern.
+
+**Targeted Mode:** Once the address is known (either from discovery or supplied via `--addr`), the scanner configures the nRF24L01+ with the properly scrambled address on pipe 0 for clean hardware-filtered reception. Payloads are de-whitened using the full XN297_emu.ino algorithm (`bit_reverse(raw[i]) ^ bit_reverse(scramble[i + addr_len])`), and displayed with timestamps and channel numbers.
+
+### Protocol Fidelity
+
+The scanner implements the exact algorithms from the nrf24_multipro C reference:
+
+| Operation | C Source | Python Implementation |
+|-----------|----------|----------------------|
+| Address scramble | `XN297_SetRXAddr` | `xn297_scramble_address()` |
+| Payload de-whiten | `XN297_ReadPayload` | `xn297_read_payload()` |
+| CRC-16 | `crc16_update` | `xn297_crc16()` |
+| Bit reversal | `bit_reverse` | `BIT_REVERSE` LUT (256 entries) |
+| Scramble table | `xn297_scramble[]` | `XN297_SCRAMBLE` (35 bytes) |
+| CRC XOR-out | `xn297_crc_xorout[]` | `XN297_CRC_XOROUT` (28 entries) |
+
+The 35-byte scramble table (vs. the 32-byte table in `main.py`) covers the full range needed for 5-byte addresses plus up to 30 bytes of payload. The CRC validation provides definitive confirmation that a captured packet is a genuine XN297L transmission, not random noise that happened to match the preamble.
+
+### Usage in the Development Workflow
+
+```
+# Step 1: Discover the remote's address and channels
+python3 xn297l_scanner.py --fcc-channels
+
+# Step 2: Lock to discovered address, verify button presses
+python3 xn297l_scanner.py --addr 38 72 2D A8 5E --channels 42
+
+# Step 3: Hardcode the address and channel into main.py
+# Step 4: Run --learn mode in main.py to capture button codes
+```
+
+The scanner bridges the gap between "I have an unknown XN297L remote" and "I know the address and channel to put in my controller."
 
 ---
 

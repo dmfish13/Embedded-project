@@ -21,6 +21,7 @@ This document walks through how the project code is implemented: every function,
 11. [RF Receive Loop](#11-rf-receive-loop)
 12. [Shutdown Sequence](#12-shutdown-sequence)
 13. [Supporting Data Modules](#13-supporting-data-modules)
+14. [XN297L Scanner Tool](#14-xn297l-scanner-tool)
 
 ---
 
@@ -29,6 +30,7 @@ This document walks through how the project code is implemented: every function,
 | File | Lines | Purpose |
 |------|-------|---------|
 | `main.py` | 1385 | Complete controller — radio, LEDs, animations, button dispatch |
+| `xn297l_scanner.py` | 572 | XN297L protocol emulation scanner — address discovery, channel hopping, de-whitening |
 | `remote_button_map.py` | 152 | Pure data: color definitions, button mappings, mode presets |
 | `button_map.py` | 198 | Original 25-button map with WRGB values and hex placeholders |
 | `led_controller.py` | 183 | Standalone `LEDStrip` class (reference driver, not used by main.py) |
@@ -36,6 +38,8 @@ This document walks through how the project code is implemented: every function,
 | `SYSTEM_ARCHITECTURE.md` | 632 | Hardware and design rationale documentation |
 
 `main.py` is entirely self-contained — it does not import from the other Python files. All LED encoding, RF protocol handling, color definitions, and animation logic are defined inline so the controller runs from a single file with no local dependencies.
+
+`xn297l_scanner.py` is a standalone diagnostic and reverse-engineering tool. It implements the full XN297L protocol emulation layer ported from the nrf24_multipro C project (XN297_emu.ino, nRF24L01.ino, iface_nrf24l01.h). While `main.py` uses a simplified descramble with the known remote address, the scanner handles unknown remotes with promiscuous preamble detection, CRC-16 validation, and multi-channel hopping.
 
 ---
 
@@ -830,3 +834,79 @@ A standalone `LEDStrip` class for TM1815B LEDs. Uses the same SPI bit-banging ap
 - Built-in brightness scaling (0.0–1.0)
 
 This file is a reference implementation. `main.py` reimplements the LED encoding inline (with WRGB order matching the TM1815B wire format) to avoid an external dependency.
+
+---
+
+## 14. XN297L Scanner Tool
+
+### Overview — `xn297l_scanner.py`
+
+A standalone RF diagnostic and reverse-engineering tool ported from the nrf24_multipro C project (XN297_emu.ino, nRF24L01.ino, iface_nrf24l01.h). Where `main.py` operates with a known address on a known channel, the scanner handles the discovery phase — finding unknown remotes, identifying their address and active channels, and validating packets with full CRC-16 verification.
+
+### XN297 Protocol Implementation
+
+The scanner implements the complete XN297L protocol emulation layer:
+
+**Scramble Table (35 bytes):** Ported directly from `XN297_emu.ino`. The table is 35 bytes (not 32 as in some references) to cover a full 5-byte address plus 30 bytes of payload.
+
+**Address Scrambling — `xn297_scramble_address(addr, addr_len)`:** Converts a real XN297 address into the scrambled form the nRF24L01+ sees on the air. From `XN297_SetRXAddr` in XN297_emu.ino: `scrambled[i] = addr[i] ^ scramble[addr_len - i - 1]`. The scramble table is indexed in reverse for the address portion.
+
+**Address Descrambling — `xn297_descramble_address(scrambled_addr, addr_len)`:** The inverse operation (XOR is self-inverse). Used in discovery mode to recover real addresses from captured packets.
+
+**Payload De-whitening — `xn297_read_payload(raw_payload, addr_len)`:** Ported from `XN297_ReadPayload` in XN297_emu.ino: `msg[i] = bit_reverse(raw[i]) ^ bit_reverse(scramble[i + addr_len])`. Both the raw byte and the scramble byte are individually bit-reversed before XOR. This differs from `main.py`'s simplified `descramble()` which only bit-reverses the raw byte — the scanner uses the exact algorithm from the reference C implementation.
+
+**CRC-16 — `xn297_crc16(data)` and `xn297_verify_crc()`:** Polynomial 0x1021, initial value 0xB5D2, with a per-length XOR-out finalization table (28 entries from XN297_emu.ino). The CRC is computed over the scrambled address + scrambled payload, then XOR'd with `crc_xorout[addr_len - 3 + payload_len]`. The last 2 bytes of the on-air frame are the CRC. This validation is the definitive test that a captured packet is a real XN297 transmission versus random noise.
+
+### NRF24L01 Driver Class
+
+A self-contained nRF24L01+ driver using Blinka (busio/digitalio) on SPI0, identical in hardware interface to main.py's driver but with two configuration modes:
+
+**Discovery Mode — `configure_xn297_discovery()`:** Sets up promiscuous preamble-based reception. The XN297 28-bit preamble is 0xC710F55. The nRF24L01+ consumes the first byte (0x55) as its own preamble. The scanner sets a 2-byte address to match the remaining bytes (0x0F, 0x71), so any XN297 packet triggers a FIFO entry. A second pipe listens for the alternative 0xAA-based preamble (used when the scrambled address MSB starts with 1). The 32-byte "payload" then contains the scrambled XN297 address + payload + CRC, which the software parses and validates.
+
+**Targeted Mode — `configure_xn297_targeted(xn297_addr, addr_len)`:** Configures the nRF24L01+ to receive from a specific known XN297 address. The address is scrambled per `xn297_scramble_address()` and written as the pipe 0 RX address. CRC remains disabled in hardware (validated in software).
+
+### Discovery Scanning — `scan_discovery()`
+
+The discovery algorithm:
+
+1. Configure the radio in promiscuous preamble-matching mode
+2. Hop across all specified channels with configurable dwell time per channel
+3. For each received 32-byte packet:
+   - Extract and descramble the XN297 address (first `addr_len` bytes)
+   - Try CRC validation at payload lengths 4 through 26 to find the correct length
+   - De-whiten the payload using `xn297_read_payload()`
+   - Track address frequency (vote counting) and active channels
+4. After reaching the packet limit or Ctrl+C, report:
+   - Address frequency summary (most-seen addresses)
+   - Active channel summary
+   - Recommended address and channels for targeted listening
+
+### Targeted Listening — `listen_targeted()`
+
+Once an address is known (either from discovery or the `--addr` CLI argument):
+
+1. Configure the radio with the scrambled address on pipe 0
+2. Hop across active channels with dwell time
+3. De-whiten each received payload using `xn297_read_payload()`
+4. Apply 300ms debounce to suppress repeated button-hold transmissions
+5. Display decoded payloads with timestamps and channel info
+
+### CLI Interface
+
+```
+python3 xn297l_scanner.py                          # Full discovery scan (ch 0-83)
+python3 xn297l_scanner.py --fcc-channels            # Scan FCC-reported channels only (21, 42, 64)
+python3 xn297l_scanner.py --channels 40,41,42,43    # Scan specific channels
+python3 xn297l_scanner.py --addr 38 72 2D A8 5E    # Skip discovery, targeted listen
+python3 xn297l_scanner.py --addr-len 4              # Use 4-byte address (default: 5)
+python3 xn297l_scanner.py --dwell 50                # 50ms per channel (default: 30ms)
+python3 xn297l_scanner.py --max-packets 1000        # Capture limit for discovery mode
+```
+
+### Relationship to main.py
+
+The scanner is a development and diagnostic tool, not part of the runtime controller. It serves three purposes:
+
+1. **Initial Setup:** Discover the remote's XN297 address and active channels before hardcoding them into main.py
+2. **Protocol Debugging:** Validate that descrambling, bit-reversal, and CRC are working correctly with full XN297_emu.ino-compliant algorithms
+3. **Multi-Remote Discovery:** Identify and distinguish multiple XN297L remotes in the same environment by address frequency analysis
