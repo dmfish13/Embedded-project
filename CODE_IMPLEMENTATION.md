@@ -13,7 +13,7 @@ This document walks through how the project code is implemented: every function,
 3. [LED Encoding Pipeline](#3-led-encoding-pipeline)
 4. [Frame Construction](#4-frame-construction)
 5. [nRF24L01+ Radio Driver](#5-nrf24l01-radio-driver)
-6. [BK2423 Descramble Pipeline](#6-bk2423-descramble-pipeline)
+6. [XN297L Descramble Pipeline](#6-xn297l-descramble-pipeline)
 7. [Pairing and Learning Mode](#7-pairing-and-learning-mode)
 8. [Threading Model](#8-threading-model)
 9. [Animation Implementations](#9-animation-implementations)
@@ -299,13 +299,13 @@ The nRF24L01+ clocks in a command byte on the rising edge of SCK while CSN is LO
 
 ### `configure()` — Line 482
 
-Sets up the radio for BK2423-compatible reception:
+Sets up the radio for XN297L-compatible reception:
 
 ```
 Register  Value   Meaning
 ───────────────────────────────────────────────────
 0x00      0x03    CONFIG: PWR_UP=1, PRIM_RX=1 (power on, RX mode)
-0x01      0x00    EN_AA: auto-ack disabled (BK2423 doesn't use it)
+0x01      0x00    EN_AA: auto-ack disabled (XN297L doesn't use it)
 0x02      0x01    EN_RXADDR: only pipe 0 enabled
 0x03      0x03    SETUP_AW: 5-byte address (ADDR_WIDTH - 2)
 0x0A      [addr]  RX_ADDR_P0: [0x38, 0x72, 0x2D, 0xA8, 0x5E]
@@ -321,11 +321,11 @@ Register  Value   Meaning
 
 After configuration, CE is driven HIGH to enter active RX mode. The 2 ms delay after PWR_UP allows the radio's crystal oscillator to stabilize.
 
-**Why no CRC:** The BK2423 transmitter uses its own scrambling and doesn't generate nRF24L01+-compatible CRC checksums. Enabling CRC would cause every packet to fail the check.
+**Why no CRC:** The XN297L protocol uses its own scrambling and doesn't generate nRF24L01+-compatible CRC checksums. Enabling CRC would cause every packet to fail the check.
 
 **Why no auto-ack:** Auto-acknowledge requires the receiver to transmit back to the sender. The Jasco remote doesn't expect acknowledgments — it's a fire-and-forget broadcast protocol.
 
-**Why 32-byte fixed payload:** The BK2423 always sends full 32-byte frames. Using dynamic payload length would require features (FEATURE register) that don't interoperate with the BK2423's protocol.
+**Why 32-byte fixed payload:** The XN297L always sends full 32-byte frames. Using dynamic payload length would require features (FEATURE register) that don't interoperate with the XN297L protocol.
 
 ### `available()` — Line 513
 
@@ -341,9 +341,9 @@ Drops CE LOW and clears PWR_UP in the CONFIG register. The radio enters a ~900 n
 
 ---
 
-## 6. BK2423 Descramble Pipeline
+## 6. XN297L Descramble Pipeline
 
-The Jasco remote's BK2423 (XN297) transmitter applies two transformations before sending data over the air:
+The Jasco remote's XNS1042 (XN297L protocol) transmitter applies two transformations before sending data over the air:
 
 1. **Bit reversal:** Each byte's bit order is flipped (MSB becomes LSB)
 2. **XOR scrambling:** Each byte is XOR'd with a corresponding entry in Scramble Table B
@@ -362,7 +362,7 @@ A 256-entry lookup table that reverses the bit order of any byte. For example: `
 
 ### `SCRAMBLE_B` — Line 149
 
-The 32-byte XOR key used by the BK2423. Bytes 0–4 correspond to the address, bytes 5–31 to the payload. Since the nRF24L01+ strips the address before delivering the payload, descrambling starts at offset `ADDR_WIDTH` (5).
+The 32-byte XOR key used by the XN297L protocol. Bytes 0–4 correspond to the address, bytes 5–31 to the payload. Since the nRF24L01+ strips the address before delivering the payload, descrambling starts at offset `ADDR_WIDTH` (5).
 
 ### `descramble(raw)` — Line 538
 
@@ -390,7 +390,7 @@ The inverse of `descramble()` — converts descrambled bytes back to the on-air 
 
 ### `find_idle_start(desc_bytes)` — Line 578
 
-The BK2423 transmits fixed 32-byte frames regardless of actual data length. Unused bytes at the end contain idle-line fill patterns: raw values `0xFF`, `0x55`, or `0xAA` (alternating high/low bit patterns from the idle transmitter).
+The XN297L transmits fixed 32-byte frames regardless of actual data length. Unused bytes at the end contain idle-line fill patterns: raw values `0xFF`, `0x55`, or `0xAA` (alternating high/low bit patterns from the idle transmitter).
 
 This function identifies where the meaningful payload ends:
 
@@ -739,7 +739,7 @@ For each iteration:
 
 1. **Poll:** Check `radio.available()` (~1000 Hz with the 1ms sleep)
 2. **Read:** Pull the 32-byte payload from the RX FIFO
-3. **Descramble:** Undo BK2423 bit reversal + XOR scrambling
+3. **Descramble:** Undo XN297L bit reversal + XOR scrambling
 4. **Filter:** Discard known background source packets
 5. **Extract:** Strip idle tail, convert to hex string
 6. **Debounce:** Ignore if the same code was seen within `DEBOUNCE_S` (300ms)

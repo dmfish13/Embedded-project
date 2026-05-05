@@ -18,7 +18,7 @@ System Architecture:
     │  ┌──────┴───────┐                       │   frame refresh)  │    │
     │  │ Jasco Remote │                       └────────┬─────────┘    │
     │  │ (25 buttons) │                                │              │
-    │  │ BK2423/XN297 │                       SPI1 (2 MHz)           │
+    │  │ XNS1042      │                       SPI1 (2 MHz)           │
     │  └──────────────┘                       GPIO 20 (MOSI)         │
     │                                                  │              │
     │                                         ┌────────┴─────────┐    │
@@ -43,8 +43,8 @@ Threading Model:
        mode_stop Event when switching modes.
     4. Timer Thread — optional 2hr/4hr auto-off countdown
 
-RF Protocol (BK2423/XN297 → nRF24L01+ compatibility):
-    The Jasco remote uses a BK2423 transmitter (XN297 compatible).
+RF Protocol (XNS1042 / XN297L → nRF24L01+ compatibility):
+    The Jasco remote uses an XNS1042 transmitter (XN297L protocol).
     On-air packets are scrambled with Scramble Table B and bit-reversed.
     The nRF24L01+ receives raw bytes which must be descrambled:
       descrambled[i] = bit_reverse(raw[i]) XOR SCRAMBLE_B[ADDR_WIDTH + i]
@@ -129,10 +129,10 @@ TWINKLE_COLOR_COUNT = 200 # Pre-generated random color sequence length per LED
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# RF Constants (BK2423 / XN297 protocol)
+# RF Constants (XNS1042 / XN297L protocol)
 #
-# The BK2423 (marketed as XN297) transmitter in the Jasco remote applies
-# two transformations to payload bytes before transmission:
+# The XNS1042 IC in the Jasco remote uses the XN297L protocol, which
+# applies two transformations to payload bytes before transmission:
 #   1. Bit reversal — each byte's bit order is flipped (MSB↔LSB)
 #   2. XOR with Scramble Table B — a fixed 32-byte sequence applied
 #      starting at offset ADDR_WIDTH (bytes 0-4 are the address)
@@ -144,7 +144,7 @@ TWINKLE_COLOR_COUNT = 200 # Pre-generated random color sequence length per LED
 # Lookup table: BIT_REVERSE[0xC0] = 0x03 (reverses all 8 bits)
 BIT_REVERSE = bytes([int(f"{i:08b}"[::-1], 2) for i in range(256)])
 
-# BK2423 Scramble Table B — XOR'd with payload after bit reversal
+# XN297L Scramble Table B — XOR'd with payload after bit reversal
 # 32 bytes covers address (5) + max payload (27 meaningful bytes)
 SCRAMBLE_B = [
     0xE3, 0xB1, 0x4B, 0xEA, 0x85, 0xBC, 0xE5, 0x66,
@@ -480,12 +480,12 @@ class NRF24L01:
         return rx[1:]  # First byte is status, payload starts at [1]
 
     def configure(self):
-        """Configure for BK2423/XN297 reception on channel 42.
+        """Configure for XN297L reception on channel 42.
 
         Sets up the radio in RX mode with:
         - Hardware address filtering on pipe 0 (non-promiscuous)
         - 5-byte address width matching the remote's TX address
-        - Fixed 32-byte payload (BK2423 always sends full frames)
+        - Fixed 32-byte payload (XN297L always sends full frames)
         - 1 Mbps data rate, no CRC, no auto-ack, no dynamic payload
         - Maximum receiver sensitivity (-82 dBm at 1 Mbps)
 
@@ -496,7 +496,7 @@ class NRF24L01:
         self._ce.value = False
         self._reg_write(0x00, 0x03)          # CONFIG: PWR_UP | PRIM_RX
         time.sleep(0.002)                    # 1.5ms power-up delay
-        self._reg_write(0x01, 0x00)          # EN_AA: no auto-ack (BK2423 compat)
+        self._reg_write(0x01, 0x00)          # EN_AA: no auto-ack (XN297L compat)
         self._reg_write(0x02, 0x01)          # EN_RXADDR: pipe 0 only
         self._reg_write(0x03, ADDR_WIDTH - 2)  # SETUP_AW: 5-byte address
         self._reg_write_bytes(0x0A, bytes(NRF24_ADDR))  # RX_ADDR_P0
@@ -528,15 +528,15 @@ class NRF24L01:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# RF Descramble (BK2423 Scramble Table B + bit reversal)
+# RF Descramble (XN297L Scramble Table B + bit reversal)
 #
-# The nRF24L01+ receives raw on-air bytes. The BK2423 transmitter in the
+# The nRF24L01+ receives raw on-air bytes. The XNS1042 transmitter in the
 # remote applied: scramble(data) = bit_reverse(data[i]) XOR SCRAMBLE_B[5+i]
 # We reverse that to recover the original payload the remote intended to send.
 # ═══════════════════════════════════════════════════════════════════════
 
 def descramble(raw):
-    """Convert raw nRF24L01+ bytes → original BK2423 payload.
+    """Convert raw nRF24L01+ bytes → original XN297L payload.
 
     For each byte: bit-reverse it, then XOR with the scramble table entry
     at offset (ADDR_WIDTH + byte_index). Bytes beyond the scramble table
@@ -578,7 +578,7 @@ def to_hex(data):
 def find_idle_start(desc_bytes):
     """Find where meaningful payload ends and idle-line tail begins.
 
-    The BK2423 transmits fixed-length frames. After the actual button data,
+    The XN297L transmits fixed-length frames. After the actual button data,
     the remaining bytes are idle-line fill (raw values 0xFF, 0x55, or 0xAA).
     This function scans backward from the end of the raw bytes to find where
     the tail starts, allowing ±1 bit error tolerance for RF noise.
@@ -1325,7 +1325,7 @@ def main():
 
     # ── Main RF receive loop ──
     # Polls the nRF24L01+ RX FIFO at ~1000 Hz. For each received packet:
-    #   1. Descramble (undo BK2423 scramble + bit reversal)
+    #   1. Descramble (undo XN297L scramble + bit reversal)
     #   2. Filter out known background source packets
     #   3. Extract button code (meaningful bytes before idle tail)
     #   4. Debounce (ignore same code within DEBOUNCE_S window)

@@ -16,7 +16,7 @@
 
 ## Project Overview
 
-This project replaces the original Enbrighten LED cafe light controller IC with a Raspberry Pi 5, intercepting the RF signal from the original Jasco QOBRGBXYZA 25-button remote control and driving the TM1815B RGBW LED string directly. The system operates as a transparent replacement — the user presses buttons on the same physical remote, and the lights respond identically (plus additional modes not available in the stock controller).
+This project replaces the original Enbrighten LED cafe light controller — a PIC12F683 microcontroller acting as the RF decoder IC — with a Raspberry Pi 5, intercepting the RF signal from the original Jasco QOBRGBXYZA 25-button remote control (XNS1042 transmitter, XN297L protocol) and driving the TM1815B RGBW LED string directly. The system operates as a transparent replacement — the user presses buttons on the same physical remote, and the lights respond identically (plus additional modes not available in the stock controller).
 
 ### Why Build This?
 
@@ -50,7 +50,7 @@ The stock Enbrighten controller has limited functionality: basic color selection
     │  │  Jasco Remote │                              └────────┬─────────┘  │
     │  │  QOBRGBXYZA   │                                       │            │
     │  │  (25 buttons) │                              SPI1 (2.0 MHz)        │
-    │  │  BK2423 TX    │                              GPIO 20 (MOSI)        │
+    │  │  XNS1042 TX   │                              GPIO 20 (MOSI)        │
     │  └───────────────┘                                       │            │
     │                                                 ┌────────┴─────────┐  │
     │                                                 │  3.3V → 5V       │  │
@@ -75,17 +75,17 @@ The stock Enbrighten controller has limited functionality: basic color selection
 
 The Jasco remote communicates wirelessly with the LED controller at 2.4 GHz. Rather than designing a custom remote or using a phone app, this project intercepts the existing remote's signal. This preserves the original user experience — the same physical remote, same button layout, same muscle memory — while completely replacing the receiver and LED driver with custom software.
 
-### The BK2423/XN297 Protocol
+### The XNS1042 / XN297L Protocol
 
-The remote's transmitter is a **BK2423** (also marketed as XN297), a Chinese-manufactured RF transceiver that is wire-compatible with Nordic Semiconductor's nRF24L01+ at the radio layer but adds two additional encoding steps to the payload before transmission.
+The remote's transmitter is an **XNS1042** IC using the **XN297L** protocol, a Chinese-manufactured RF transceiver that is wire-compatible with Nordic Semiconductor's nRF24L01+ at the radio layer but adds two additional encoding steps to the payload before transmission.
 
-**Why the BK2423 exists:** It was designed as a cheaper drop-in replacement for the nRF24L01+ in consumer products (remotes, toys, keyboards). The scrambling was added to provide minimal over-the-air obfuscation without requiring firmware changes on the MCU side — the BK2423 handles it transparently in hardware.
+**Why the XN297L family exists:** It was designed as a cheaper drop-in replacement for the nRF24L01+ in consumer products (remotes, toys, keyboards). The scrambling was added to provide minimal over-the-air obfuscation without requiring firmware changes on the MCU side — the XNS1042 handles it transparently in hardware.
 
-**What this means for interception:** A standard nRF24L01+ receiver can hear BK2423 packets because the physical layer (modulation, preamble, address matching) is identical. However, the received payload bytes must be descrambled in software to recover the original data.
+**What this means for interception:** A standard nRF24L01+ receiver can hear XN297L packets because the physical layer (modulation, preamble, address matching) is identical. However, the received payload bytes must be descrambled in software to recover the original data.
 
 ### Descramble Process
 
-The BK2423 applies two transformations before transmitting each payload byte:
+The XNS1042 (via XN297L protocol) applies two transformations before transmitting each payload byte:
 
 1. **Bit Reversal** — Each byte's bit order is flipped (MSB becomes LSB)
 2. **XOR with Scramble Table B** — A fixed 32-byte sequence, applied starting at byte offset equal to the address width (5)
@@ -95,7 +95,7 @@ To recover the original data:
 descrambled[i] = BIT_REVERSE_LUT[raw_byte[i]] XOR SCRAMBLE_TABLE_B[5 + i]
 ```
 
-The `BIT_REVERSE` operation is implemented as a 256-entry lookup table for O(1) per byte — no loop over 8 bits. The Scramble Table B is a fixed constant from the BK2423 datasheet:
+The `BIT_REVERSE` operation is implemented as a 256-entry lookup table for O(1) per byte — no loop over 8 bits. The Scramble Table B is a fixed constant from the XN297L datasheet:
 
 ```
 SCRAMBLE_B = [
@@ -111,10 +111,10 @@ SCRAMBLE_B = [
 | Parameter | Value | Why This Value |
 |-----------|-------|----------------|
 | Frequency | 2442 MHz (Channel 42) | Discovered via channel scanning; the remote transmits here |
-| Data Rate | 1 Mbps | BK2423's default mode; matches nRF24L01+ standard rate |
+| Data Rate | 1 Mbps | XN297L default mode; matches nRF24L01+ standard rate |
 | Address | `38 72 2D A8 5E` (5 bytes) | Reverse-engineered from captured preamble sequences |
-| Payload | 32 bytes (fixed) | BK2423 transmits fixed-length frames; shorter data is padded with idle fill |
-| CRC | Disabled | BK2423's CRC algorithm differs from nRF24L01+'s; incompatible at hardware level |
+| Payload | 32 bytes (fixed) | XN297L transmits fixed-length frames; shorter data is padded with idle fill |
+| CRC | Disabled | XN297L CRC algorithm differs from nRF24L01+'s; incompatible at hardware level |
 | Auto-Ack | Disabled | One-way link (remote → receiver); no return channel needed |
 | Dynamic Payload | Disabled | Fixed 32-byte frames simplify parsing |
 
@@ -128,12 +128,12 @@ The nRF24L01+ contains a hardware correlator that continuously scans the incomin
 - WiFi (2.4 GHz): Rejected — different modulation and framing
 - Bluetooth: Rejected — different modulation, frequency hopping
 - Other nRF24L01+ devices: Rejected — different address (probability of collision: 1 in 2^40 ≈ 1 in 1.1 trillion)
-- Other BK2423 remotes: Rejected — different address (each remote has a factory-programmed address)
+- Other XN297L remotes: Rejected — different address (each remote has a factory-programmed address)
 - Microwave ovens: Rejected — wideband noise doesn't correlate with address pattern
 
 **Why not add software pairing on top?** Adding a challenge-response pairing protocol would provide zero additional security because:
 1. The address already uniquely identifies this remote
-2. There's no encryption (BK2423 doesn't support it at this data rate)
+2. There's no encryption (XN297L doesn't support it at this data rate)
 3. A determined attacker could replay captured packets regardless of pairing state
 4. The threat model for cafe lights doesn't warrant cryptographic authentication
 
@@ -146,13 +146,13 @@ During testing, a persistent background source was discovered sharing the same a
 - **CMD packets:** First 4 bytes = `4C 6D 17 65`
 - **IDLE packets:** First 4 bytes = `4C ED AD 0B`
 
-**Why this happens:** The address space of 2^40 is large but not infinite. In a residential environment with multiple Enbrighten/Jasco products, address collision is possible. The BK2423's scrambling means the addresses look random on-air, making collisions a manufacturing lottery.
+**Why this happens:** The address space of 2^40 is large but not infinite. In a residential environment with multiple Enbrighten/Jasco products, address collision is possible. The XN297L's scrambling means the addresses look random on-air, making collisions a manufacturing lottery.
 
 **Software solution:** A simple 4-byte header check filters these packets before dispatch. This is more robust than ignoring them at the radio level (which isn't possible — they pass legitimate address matching). The filter adds negligible CPU overhead (one 4-byte comparison per packet).
 
 ### Idle-Line Tail Detection
 
-The BK2423 transmits fixed 32-byte frames regardless of actual payload length. When the remote's data is shorter than 32 bytes (which it always is — button codes are ~11-15 bytes), the remaining bytes are idle-line fill. On the raw (pre-scramble) wire, these appear as repeating patterns:
+The XN297L transmits fixed 32-byte frames regardless of actual payload length. When the remote's data is shorter than 32 bytes (which it always is — button codes are ~11-15 bytes), the remaining bytes are idle-line fill. On the raw (pre-scramble) wire, these appear as repeating patterns:
 
 - `0xFF` (all ones — line idle HIGH)
 - `0x55` (alternating bits — clock recovery pattern)
@@ -202,7 +202,7 @@ The nRF24L01+ requires a non-standard SPI interaction pattern:
 
 Standard Linux spidev handles chip select automatically per `xfer2()` call, but the nRF24L01+ needs CSN held LOW across multi-byte sequences where the first byte is a command and subsequent bytes are data. The Adafruit Blinka library (busio/digitalio) provides the manual GPIO control needed.
 
-**Why not use the circuitpython-nrf24l01 library?** Early testing revealed the library's abstraction layer was incorrectly configuring the radio for this specific BK2423 protocol (wrong address width, incompatible auto-ack settings). Raw register access provides exact control over every configuration bit, matching the settings proven to work in capture scripts.
+**Why not use the circuitpython-nrf24l01 library?** Early testing revealed the library's abstraction layer was incorrectly configuring the radio for this specific XN297L protocol (wrong address width, incompatible auto-ack settings). Raw register access provides exact control over every configuration bit, matching the settings proven to work in capture scripts.
 
 ### SPI1: LED Interface (spidev)
 
@@ -377,7 +377,7 @@ A `ControllerState` class would work equally well. Closures were chosen because:
 
 ### Debounce Strategy
 
-The remote sends repeated packets while a button is held (the membrane keypad shorts continuously, causing the BK2423 to retransmit). Without debouncing, a single press might register 5-20 times.
+The remote sends repeated packets while a button is held (the membrane keypad shorts continuously, causing the XNS1042 to retransmit). Without debouncing, a single press might register 5-20 times.
 
 ```python
 if code == last_button_code and (now - last_button_time) < DEBOUNCE_S:
@@ -574,7 +574,7 @@ For a dedicated LED controller, these trade-offs are acceptable. The Pi 5 has 4 
 
 The project uses direct nRF24L01+ register writes (`_reg_write(0x00, 0x03)`) instead of a high-level library like `circuitpython-nrf24l01`.
 
-**Reason:** The BK2423 compatibility mode requires exact register values that the library either doesn't expose or sets incorrectly:
+**Reason:** The XN297L compatibility mode requires exact register values that the library either doesn't expose or sets incorrectly:
 - CRC must be disabled (library defaults to CRC-16)
 - Auto-ack must be disabled on all pipes (library enables it by default)
 - Dynamic payload must be off (library may enable features register)
@@ -622,7 +622,7 @@ The modular split (led_driver.py, remote_button_map.py, rf_pair.py, rf_receiver.
 
 This system demonstrates that consumer RF protocols can be intercepted and driven by commodity hardware (Raspberry Pi + nRF24L01+) with minimal additional circuitry (one level shifter). The key insights are:
 
-1. **BK2423/nRF24L01+ compatibility** makes interception possible without an SDR or custom radio hardware
+1. **XN297L/nRF24L01+ compatibility** makes interception possible without an SDR or custom radio hardware
 2. **Hardware address filtering** provides sufficient device isolation without a software pairing protocol
 3. **Dual independent SPI buses** eliminate hardware contention between unrelated subsystems
 4. **Event-based threading** gives sub-millisecond response time with minimal CPU usage

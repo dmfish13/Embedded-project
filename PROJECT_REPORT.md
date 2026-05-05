@@ -14,17 +14,17 @@ The Enbrighten LED cafe light string ships with a basic controller that accepts 
 
 The design philosophy is transparent replacement — the user presses the same physical buttons on the same remote, and the lights respond. No mobile app, no WiFi dependency, no cloud service. The remote's 25 buttons map to a richer feature set than the original controller ever offered, and new features can be deployed via a simple software update without touching hardware.
 
-The remote uses a BK2423 transmitter (marketed as XN297), a Chinese-manufactured RF transceiver that is wire-compatible with Nordic Semiconductor's nRF24L01+ at the physical layer. This compatibility is the key insight that makes the entire project feasible: a commodity nRF24L01+ receiver module (under two dollars) can hear the remote's transmissions directly, provided the payload is descrambled in software. The receiver module connects to the Pi's SPI bus, while the LED data line uses a separate SPI bus with a voltage level shifter to meet the TM1815B's 5V logic requirement.
+The remote uses an XNS1042 transmitter IC implementing the XN297L protocol, a Chinese-manufactured RF transceiver that is wire-compatible with Nordic Semiconductor's nRF24L01+ at the physical layer. This compatibility is the key insight that makes the entire project feasible: a commodity nRF24L01+ receiver module (under two dollars) can hear the remote's transmissions directly, provided the payload is descrambled in software. The receiver module connects to the Pi's SPI bus, while the LED data line uses a separate SPI bus with a voltage level shifter to meet the TM1815B's 5V logic requirement. The stock controller board uses a PIC12F683 microcontroller as the decoder IC, which this project replaces entirely with the Raspberry Pi 5.
 
 ---
 
 ## 2. RF Signal Interception
 
-### 2.1 The BK2423/XN297 Protocol
+### 2.1 The XNS1042 / XN297L Protocol
 
-The BK2423 transmitter was designed as a cheaper drop-in replacement for the nRF24L01+ in consumer products. It maintains identical modulation (GFSK at 1 Mbps), preamble structure, and address matching behavior, which means an nRF24L01+ receiver recognizes BK2423 packets as valid. However, the BK2423 adds two encoding steps to the payload before transmission: bit reversal (each byte's MSB and LSB are swapped) and XOR scrambling with a fixed 32-byte table known as Scramble Table B. These transformations provide minimal over-the-air obfuscation without requiring any firmware awareness — the BK2423 handles scrambling transparently in hardware.
+The XN297L protocol family was designed as a cheaper drop-in replacement for the nRF24L01+ in consumer products. The XNS1042 IC in the Jasco remote implements this protocol, maintaining identical modulation (GFSK at 1 Mbps), preamble structure, and address matching behavior, which means an nRF24L01+ receiver recognizes XN297L packets as valid. However, the XN297L adds two encoding steps to the payload before transmission: bit reversal (each byte's MSB and LSB are swapped) and XOR scrambling with a fixed 32-byte table known as Scramble Table B. These transformations provide minimal over-the-air obfuscation without requiring any firmware awareness — the XNS1042 handles scrambling transparently in hardware.
 
-For interception, the nRF24L01+ receiver is configured for channel 42 (2442 MHz) with a 5-byte address of [0x38, 0x72, 0x2D, 0xA8, 0x5E], 1 Mbps data rate, no CRC, no auto-acknowledgment, and a fixed 32-byte payload width. CRC is disabled because the BK2423's CRC algorithm is incompatible with the nRF24L01+'s implementation — enabling it would cause every valid packet to fail the check. Auto-acknowledgment is disabled because the remote is a one-way transmitter; it never listens for responses.
+For interception, the nRF24L01+ receiver is configured for channel 42 (2442 MHz) with a 5-byte address of [0x38, 0x72, 0x2D, 0xA8, 0x5E], 1 Mbps data rate, no CRC, no auto-acknowledgment, and a fixed 32-byte payload width. CRC is disabled because the XN297L's CRC algorithm is incompatible with the nRF24L01+'s implementation — enabling it would cause every valid packet to fail the check. Auto-acknowledgment is disabled because the remote is a one-way transmitter; it never listens for responses.
 
 The descramble process in software is straightforward: for each received byte at position i, the code looks up its bit-reversed value in a pre-computed 256-entry table, then XORs the result with SCRAMBLE_B[5 + i] (the scramble table offset by the 5-byte address width). This transforms the raw on-air bytes back into the original payload the remote intended to send.
 
@@ -32,13 +32,13 @@ The descramble process in software is straightforward: for each received byte at
 
 The nRF24L01+ contains a hardware correlator that continuously scans the incoming 2.4 GHz bitstream for a valid preamble followed by the programmed 5-byte address. Only when all 40 address bits match does the chip clock payload data into its receive FIFO. All other 2.4 GHz traffic — WiFi, Bluetooth, other nRF24L01+ devices, microwave ovens — is rejected at the hardware level with a collision probability of approximately one in 1.1 trillion.
 
-No software pairing protocol was implemented on top of this hardware filter because it would provide zero additional security. The address already uniquely identifies this specific remote, the BK2423 provides no encryption at this data rate, and the threat model for decorative cafe lights does not warrant cryptographic authentication. The "pairing" step in the software is simply a confirmation that the remote is present and actively transmitting — a user experience convenience, not a security measure. The code waits for two non-background packets to arrive within five seconds of each other, confirming an active transmitter.
+No software pairing protocol was implemented on top of this hardware filter because it would provide zero additional security. The address already uniquely identifies this specific remote, the XN297L provides no encryption at this data rate, and the threat model for decorative cafe lights does not warrant cryptographic authentication. The "pairing" step in the software is simply a confirmation that the remote is present and actively transmitting — a user experience convenience, not a security measure. The code waits for two non-background packets to arrive within five seconds of each other, confirming an active transmitter.
 
 ### 2.3 Background Noise and Idle-Line Detection
 
 During development, a persistent background source was discovered sharing the same RF address on channel 42, transmitting approximately 30 packets per second with two identifiable header patterns. This likely originates from another Jasco product in the environment — the scrambled address space makes such collisions a manufacturing lottery. The software filters these packets with a simple 4-byte header comparison before dispatch, adding negligible CPU overhead.
 
-Additionally, the BK2423 transmits fixed 32-byte frames regardless of actual data length. Button codes occupy only 11–15 bytes; the remaining bytes are idle-line fill that appears as repeating 0xFF, 0x55, or 0xAA patterns in the raw domain. The idle-tail detection algorithm scans backward from byte 31 to find where meaningful data ends, with single-bit error tolerance to account for RF noise.
+Additionally, the XN297L transmits fixed 32-byte frames regardless of actual data length. Button codes occupy only 11–15 bytes; the remaining bytes are idle-line fill that appears as repeating 0xFF, 0x55, or 0xAA patterns in the raw domain. The idle-tail detection algorithm scans backward from byte 31 to find where meaningful data ends, with single-bit error tolerance to account for RF noise.
 
 ---
 
@@ -52,7 +52,7 @@ By dedicating separate buses, both peripherals operate independently at full spe
 
 ### 3.2 SPI0: Radio Interface
 
-The nRF24L01+ requires a non-standard SPI transaction pattern: pull CSN low, send a command byte, transfer data bytes (simultaneously reading the response), then release CSN high. The Adafruit Blinka library (busio/digitalio) provides the manual GPIO control needed for this pattern. The higher-level circuitpython-nrf24l01 library was evaluated but rejected because it incorrectly configured the radio for BK2423 compatibility — wrong CRC settings, auto-ack enabled by default, and dynamic payload behavior that caused interoperability failures. Raw register access gave immediate success because the working configuration was copied directly from proven RF capture scripts.
+The nRF24L01+ requires a non-standard SPI transaction pattern: pull CSN low, send a command byte, transfer data bytes (simultaneously reading the response), then release CSN high. The Adafruit Blinka library (busio/digitalio) provides the manual GPIO control needed for this pattern. The higher-level circuitpython-nrf24l01 library was evaluated but rejected because it incorrectly configured the radio for XN297L compatibility — wrong CRC settings, auto-ack enabled by default, and dynamic payload behavior that caused interoperability failures. Raw register access gave immediate success because the working configuration was copied directly from proven RF capture scripts.
 
 ### 3.3 SPI1: LED Interface
 
@@ -102,7 +102,7 @@ Six distinct animations demonstrate the architecture's flexibility. Fade smoothl
 
 ## 6. Conclusion
 
-This project demonstrates that consumer RF protocols can be intercepted and driven by commodity hardware with minimal additional circuitry. The key enabling factors are BK2423/nRF24L01+ radio compatibility, hardware address filtering as a sufficient pairing mechanism, dual independent SPI buses eliminating hardware contention, event-based threading providing sub-millisecond response times with minimal CPU usage, SPI bit-banging with kernel DMA achieving precise LED timing without real-time kernel patches, and pre-computed lookup tables moving encoding costs from runtime to startup.
+This project demonstrates that consumer RF protocols can be intercepted and driven by commodity hardware with minimal additional circuitry. The key enabling factors are XN297L/nRF24L01+ radio compatibility, hardware address filtering as a sufficient pairing mechanism, dual independent SPI buses eliminating hardware contention, event-based threading providing sub-millisecond response times with minimal CPU usage, SPI bit-banging with kernel DMA achieving precise LED timing without real-time kernel patches, and pre-computed lookup tables moving encoding costs from runtime to startup.
 
 The entire system runs from a single Python file with no external dependencies beyond standard Linux SPI and GPIO libraries. Python was chosen over C because the actual timing-critical operations (SPI DMA transfers at 2.0 MHz, radio register accesses at 1 MHz) are handled by kernel drivers written in C — Python merely builds frame buffers and dispatches button events, tasks where its approximately 50-microsecond overhead is negligible against millisecond-scale hardware operations.
 
