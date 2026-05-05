@@ -1,5 +1,22 @@
 #!/bin/bash
 
+remove_empty() {
+    local dir="$1"
+
+    for entry in "$dir"/*; do
+        if [ ! -e "$entry" ]; then
+            continue
+        fi
+
+        if [ -f "$entry" ] && [ ! -s "$entry" ]; then
+            echo "Removing: $entry"
+            rm "$entry"
+        elif [ -d "$entry" ]; then
+            remove_empty "$entry"
+        fi
+    done
+}
+
 if [ $# -eq 0 ]; then
     target="."
 elif [ $# -eq 1 ]; then
@@ -14,4 +31,10 @@ if [ ! -d "$target" ]; then
     exit 1
 fi
 
-find "$target" -type f -empty -print -delete
+echo "Before:"
+tree "$target" 2>/dev/null || ls -R "$target"
+
+remove_empty "$target"
+
+echo "After:"
+tree "$target" 2>/dev/null || ls -R "$target"
